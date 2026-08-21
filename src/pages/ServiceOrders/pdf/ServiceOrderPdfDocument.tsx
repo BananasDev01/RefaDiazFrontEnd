@@ -15,6 +15,7 @@ import type { ReactNode } from 'react';
 import {
   siBmw,
   siChevrolet,
+  siChrysler,
   siFord,
   siHonda,
   siNissan,
@@ -65,6 +66,7 @@ const styles = StyleSheet.create({
   specialists: { fontSize: 5.7, letterSpacing: 1.6, marginTop: 4 },
   brandLogos: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
   brandLogo: { width: 19, height: 13 },
+  chryslerLogo: { width: 35, height: 20 },
   mercedesLogo: { width: 17, height: 13 },
   folioColumn: { width: '23%', alignItems: 'flex-end' },
   documentType: { fontSize: 5.5, letterSpacing: 0.9, color: MUTED },
@@ -182,13 +184,6 @@ const brandIconsAfterChrysler = [
   siBmw,
 ];
 
-const ChryslerLogo = () => (
-  <Svg viewBox="0 0 24 24" style={styles.brandLogo}>
-    <Polygon points="12,1 23,9 19,22 5,22 1,9" fill={INK} />
-    <Polygon points="12,4 14.2,9.2 20,9.5 15.5,13.2 17,19 12,15.5 7,19 8.5,13.2 4,9.5 9.8,9.2" fill={PAPER} />
-  </Svg>
-);
-
 const MercedesLogo = () => (
   <Svg viewBox="0 0 24 24" style={styles.mercedesLogo}>
     <Circle cx="12" cy="12" r="10.25" fill="none" stroke={INK} strokeWidth="1.4" />
@@ -205,7 +200,9 @@ const BrandLogoRow = () => (
         <Path d={icon.path} fill={INK} />
       </Svg>
     ))}
-    <ChryslerLogo />
+    <Svg viewBox="0 0 24 24" style={styles.chryslerLogo}>
+      <Path d={siChrysler.path} fill={INK} />
+    </Svg>
     {brandIconsAfterChrysler.map((icon) => (
       <Svg key={icon.slug} viewBox="0 0 24 24" style={styles.brandLogo}>
         <Path d={icon.path} fill={INK} />
