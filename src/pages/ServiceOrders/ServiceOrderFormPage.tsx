@@ -57,11 +57,12 @@ import {
   type ServiceOrderUpdateRequest,
 } from '../../types/serviceOrder.types';
 import { serviceOrderSchema } from './serviceOrderSchema';
+import { ServiceOrderPdfActions } from './pdf/ServiceOrderPdfActions';
 import ClientCreateDialog from '../Clients/ClientCreateDialog';
 import ClientVehicleDialog from '../Clients/ClientVehicleDialog';
 
-const DEFAULT_INFORMATIONAL_NOTE = 'Si aun con el mantenimiento vuelve a presentar calentamiento o gorgoteo en el recuperador, revisar con un mecanico fuga de compresion.';
-const WARRANTY_LEGAL_TEXT = 'Radiadores Diaz se obliga por esta garantia a reparar, reemplazar o cubrir unicamente el valor del producto en cuestion. En ningun caso cubrira materiales, mano de obra o partes suministradas, ni danos incidentales o consecuenciales derivados de una garantia.';
+const DEFAULT_INFORMATIONAL_NOTE = 'Si aún con el mantenimiento vuelve a presentar calentamiento o gorgoteo en el recuperador, revisar con un mecánico fuga de compresión.';
+const WARRANTY_LEGAL_TEXT = 'Radiadores Díaz se obliga por esta garantía a reparar, reemplazar o cubrir únicamente el valor del producto en cuestión. En ningún caso cubrirá materiales, mano de obra o partes suministradas, ni daños incidentales o consecuenciales derivados de una garantía.';
 const warrantyOptions = [0, 3, 6, 12] as const;
 const ADD_NEW_CLIENT_ID = -1;
 const ADD_NEW_VEHICLE_ID = -1;
@@ -306,6 +307,13 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
           : 'Nueva orden de servicio'}
         actionButton={(
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            {order && (
+              <ServiceOrderPdfActions
+                order={order}
+                failureTypes={failureTypes}
+                disabled={isSaving || isTransitioning || isDirty}
+              />
+            )}
             {order && !isTerminal && (
               <>
                 <Button color="error" variant="outlined" startIcon={<CancelOutlinedIcon />} onClick={() => setTransition('cancel')} disabled={isTransitioning || isSaving}>
