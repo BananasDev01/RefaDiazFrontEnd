@@ -19,6 +19,10 @@ import Users from './pages/Users'
 import VehicleNotesCatalog from './pages/VehicleNotes/VehicleNotesCatalog'
 import VehicleNoteFormPage from './pages/VehicleNotes/VehicleNoteFormPage'
 import VehicleNoteDetailPage from './pages/VehicleNotes/VehicleNoteDetailPage'
+import ClientsPage from './pages/Clients/ClientsPage'
+import ClientDetailPage from './pages/Clients/ClientDetailPage'
+import ServiceOrdersPage from './pages/ServiceOrders/ServiceOrdersPage'
+import ServiceOrderFormPage from './pages/ServiceOrders/ServiceOrderFormPage'
 
 // Crear instancia de QueryClient
 const queryClient = new QueryClient({
@@ -57,6 +61,15 @@ function App() {
                     <Route path=":productType/*" element={<ProductCatalog />} />
                   </Route>
                   <Route path="providers" element={<Providers />} />
+                  <Route path="clients">
+                    <Route index element={<ClientsPage />} />
+                    <Route path=":clientId" element={<ClientDetailPage />} />
+                  </Route>
+                  <Route path="service-orders">
+                    <Route index element={<ServiceOrdersPage />} />
+                    <Route path="new" element={<ServiceOrderFormPage />} />
+                    <Route path=":serviceExternalId" element={<ServiceOrderFormPage />} />
+                  </Route>
                   <Route path="admin">
                     <Route index element={<Admin />} />
                     <Route path="users" element={<Users />} />

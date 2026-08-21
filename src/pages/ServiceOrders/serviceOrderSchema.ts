@@ -1,0 +1,40 @@
+import * as yup from 'yup';
+import type { ServiceOrderFormValues } from '../../types/serviceOrder.types';
+
+export const serviceOrderSchema: yup.ObjectSchema<ServiceOrderFormValues> = yup.object({
+  clientId: yup.number().nullable().required('Selecciona un cliente.'),
+  clientVehicleId: yup.number().nullable().required('Selecciona el vehículo que ingresará al taller.'),
+  serviceDate: yup.string().required('La fecha es obligatoria.'),
+  workManagerUserId: yup.string().defined(),
+  authorizedWorkDescription: yup.string().trim().max(4000).defined(),
+  vehicleOperationObservations: yup.string().trim().max(4000).defined(),
+  importantInformation: yup.string().trim().max(4000).defined(),
+  informationalNote: yup.string().trim().max(2000).defined(),
+  compressionLeakDetected: yup.boolean().required(),
+  coolingSystemAirPressureDetected: yup.boolean().required(),
+  radiatorSerialNumber: yup.string().trim().max(300).defined(),
+  radiatorObstructionLevel: yup
+    .number()
+    .nullable()
+    .integer('La escala debe ser un número entero.')
+    .min(0, 'El mínimo es 0.')
+    .max(10, 'El máximo es 10.')
+    .defined(),
+  subtotal: yup
+    .number()
+    .nullable()
+    .min(0, 'El subtotal no puede ser negativo.')
+    .defined(),
+  taxAmount: yup
+    .number()
+    .required('Captura el IVA, incluso cuando sea $0.')
+    .min(0, 'El IVA no puede ser negativo.'),
+  warrantyMonths: yup.mixed<0 | 3 | 6 | 12>().oneOf([0, 3, 6, 12]).nullable().defined(),
+  internalNote: yup.string().trim().max(4000).defined(),
+  reportedFailures: yup.array().of(yup.object({
+    reportedFailureTypeId: yup.number().required(),
+    selected: yup.boolean().required(),
+    otherText: yup.string().trim().max(500).defined(),
+    externalId: yup.string().optional(),
+  })).required(),
+});

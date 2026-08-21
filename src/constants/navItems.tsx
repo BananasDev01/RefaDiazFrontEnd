@@ -4,6 +4,8 @@ import InventoryIcon from '@mui/icons-material/Inventory';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import DescriptionIcon from '@mui/icons-material/Description';
+import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import { RoleName } from '../types/user.types';
 
 export interface NavItem {
@@ -14,6 +16,18 @@ export interface NavItem {
 }
 
 export const mainNavItems: NavItem[] = [
+  {
+    text: 'Clientes',
+    icon: <PeopleAltOutlinedIcon />,
+    path: '/clients',
+    roles: [RoleName.ADMIN, RoleName.EMPLOYEE],
+  },
+  {
+    text: 'Ordenes de servicio',
+    icon: <AssignmentOutlinedIcon />,
+    path: '/service-orders',
+    roles: [RoleName.ADMIN, RoleName.EMPLOYEE],
+  },
   {
     text: 'Productos',
     icon: <InventoryIcon />,
