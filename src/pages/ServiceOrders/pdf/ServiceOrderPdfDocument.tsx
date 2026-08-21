@@ -1,13 +1,26 @@
 import {
   Document,
+  Circle,
   Font,
   Image,
   Page,
+  Path,
+  Polygon,
   StyleSheet,
+  Svg,
   Text,
   View,
 } from '@react-pdf/renderer';
 import type { ReactNode } from 'react';
+import {
+  siBmw,
+  siChevrolet,
+  siFord,
+  siHonda,
+  siNissan,
+  siRenault,
+  siVolkswagen,
+} from 'simple-icons';
 import type { ServiceOrderPdfData, ServiceOrderPdfFailure } from './serviceOrderPdfData';
 
 Font.registerHyphenationCallback((word) => [word]);
@@ -35,20 +48,25 @@ const styles = StyleSheet.create({
     padding: 9,
   },
   header: {
-    height: 58,
+    height: 70,
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: LINE,
     paddingBottom: 5,
   },
-  logoColumn: { width: '32%', paddingRight: 8 },
-  logo: { width: 142, height: 48, objectFit: 'contain' },
-  headerCenter: { width: '43%', alignItems: 'center', paddingHorizontal: 5 },
+  logoColumn: { width: '34%', paddingRight: 8, alignItems: 'center', justifyContent: 'center' },
+  logo: { width: 112, height: 34, objectFit: 'contain' },
+  contactBox: { width: 160, backgroundColor: INK, marginTop: 1.5, paddingHorizontal: 4, paddingVertical: 2.5 },
+  contactPrimary: { color: PAPER, fontFamily: 'Helvetica-Bold', fontSize: 4.4, textAlign: 'center', lineHeight: 1.15 },
+  contactSecondary: { color: PAPER, fontSize: 4, textAlign: 'center', lineHeight: 1.15 },
+  headerCenter: { width: '43%', alignItems: 'center', paddingHorizontal: 3 },
   slogan: { fontFamily: 'Helvetica-Bold', fontSize: 6.4, textAlign: 'center', lineHeight: 1.22 },
-  specialists: { fontSize: 5.7, letterSpacing: 1.6, marginTop: 5 },
-  brands: { fontFamily: 'Helvetica-Bold', fontSize: 6, marginTop: 4, color: MUTED },
-  folioColumn: { width: '25%', alignItems: 'flex-end' },
+  specialists: { fontSize: 5.7, letterSpacing: 1.6, marginTop: 4 },
+  brandLogos: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  brandLogo: { width: 19, height: 13 },
+  mercedesLogo: { width: 17, height: 13 },
+  folioColumn: { width: '23%', alignItems: 'flex-end' },
   documentType: { fontSize: 5.5, letterSpacing: 0.9, color: MUTED },
   dateLabel: { fontSize: 5, color: MUTED, marginTop: 5 },
   dateValue: { fontFamily: 'Helvetica-Bold', fontSize: 8, marginTop: 1 },
@@ -154,6 +172,49 @@ const Warning = ({ checked, children }: { checked: boolean; children: ReactNode 
   </View>
 );
 
+const brandIconsBeforeChrysler = [siFord, siNissan];
+
+const brandIconsAfterChrysler = [
+  siVolkswagen,
+  siRenault,
+  siChevrolet,
+  siHonda,
+  siBmw,
+];
+
+const ChryslerLogo = () => (
+  <Svg viewBox="0 0 24 24" style={styles.brandLogo}>
+    <Polygon points="12,1 23,9 19,22 5,22 1,9" fill={INK} />
+    <Polygon points="12,4 14.2,9.2 20,9.5 15.5,13.2 17,19 12,15.5 7,19 8.5,13.2 4,9.5 9.8,9.2" fill={PAPER} />
+  </Svg>
+);
+
+const MercedesLogo = () => (
+  <Svg viewBox="0 0 24 24" style={styles.mercedesLogo}>
+    <Circle cx="12" cy="12" r="10.25" fill="none" stroke={INK} strokeWidth="1.4" />
+    <Polygon points="12,2.1 13.15,11.2 12,12.2 10.85,11.2" fill={INK} />
+    <Polygon points="21.1,17.6 12.65,13.15 12,12.2 13.3,12.55" fill={INK} />
+    <Polygon points="2.9,17.6 10.7,12.55 12,12.2 11.35,13.15" fill={INK} />
+  </Svg>
+);
+
+const BrandLogoRow = () => (
+  <View style={styles.brandLogos}>
+    {brandIconsBeforeChrysler.map((icon) => (
+      <Svg key={icon.slug} viewBox="0 0 24 24" style={styles.brandLogo}>
+        <Path d={icon.path} fill={INK} />
+      </Svg>
+    ))}
+    <ChryslerLogo />
+    {brandIconsAfterChrysler.map((icon) => (
+      <Svg key={icon.slug} viewBox="0 0 24 24" style={styles.brandLogo}>
+        <Path d={icon.path} fill={INK} />
+      </Svg>
+    ))}
+    <MercedesLogo />
+  </View>
+);
+
 export interface ServiceOrderPdfDocumentProps {
   data: ServiceOrderPdfData;
   logoSource: string;
@@ -179,11 +240,16 @@ export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDoc
           <View style={styles.header}>
             <View style={styles.logoColumn}>
               <Image src={logoSource} style={styles.logo} />
+              <View style={styles.contactBox}>
+                <Text style={styles.contactPrimary}>JOSÉ ALVARADO 2008 · LOCS. 29 Y 30</Text>
+                <Text style={styles.contactSecondary}>TELS. 81 8359-6091 / 81 8387-1040</Text>
+                <Text style={styles.contactSecondary}>radiadoresdiaz.com.mx · info@radiadoresdiaz.com.mx</Text>
+              </View>
             </View>
             <View style={styles.headerCenter}>
               <Text style={styles.slogan}>PARA REPARACIONES CUALQUIERA ES BUENO{`\n`}PARA PROBLEMAS DE CALENTAMIENTO{`\n`}SOLO RADIADORES DÍAZ</Text>
               <Text style={styles.specialists}>ESPECIALISTAS EN:</Text>
-              <Text style={styles.brands}>FORD · NISSAN · VW · RENAULT · CHEVROLET · HONDA · BMW · MERCEDES</Text>
+              <BrandLogoRow />
             </View>
             <View style={styles.folioColumn}>
               <Text style={styles.documentType}>ORDEN DE SERVICIO</Text>

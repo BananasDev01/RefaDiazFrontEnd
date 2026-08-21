@@ -57,7 +57,22 @@ const nestedSnapshotText = (
 const formatDate = (value?: string | null) => {
   if (!value) return '';
   const [year, month, day] = value.slice(0, 10).split('-');
-  return year && month && day ? `${day}/${month}/${year}` : value;
+  const monthNames = [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+  ];
+  const monthName = monthNames[Number(month) - 1];
+  return year && monthName && day ? `${Number(day)} de ${monthName} de ${year}` : value;
 };
 
 const getWarrantyText = (order: ServiceOrder) => {

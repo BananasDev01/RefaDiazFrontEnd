@@ -46,7 +46,7 @@ describe('mapServiceOrderToPdfData', () => {
     const result = mapServiceOrderToPdfData(order, failureTypes);
 
     expect(result.folio).toBe('SER-0042');
-    expect(result.serviceDate).toBe('21/08/2026');
+    expect(result.serviceDate).toBe('21 de agosto de 2026');
     expect(result.clientName).toBe('Cliente ejemplo');
     expect(result.brand).toBe('Ford');
     expect(result.model).toBe('Lobo');
