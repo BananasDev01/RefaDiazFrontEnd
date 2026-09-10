@@ -1,5 +1,6 @@
 import type { ReportedFailureType, ServiceOrder } from '../../../types/serviceOrder.types';
 import { getSnapshotText } from '../../../types/serviceOrder.types';
+import { decodeServiceOrderLine } from '../serviceOrderLineCodec';
 
 export const DEFAULT_WARRANTY_LEGAL_TEXT = 'Radiadores Díaz se obliga por esta garantía a reparar, reemplazar o cubrir únicamente el valor del producto en cuestión. En ningún caso cubrirá materiales, mano de obra o partes suministradas, ni daños incidentales o consecuenciales derivados de una garantía.';
 
@@ -7,6 +8,9 @@ export interface ServiceOrderPdfFailure {
   label: string;
   selected: boolean;
   detail?: string;
+  conceptName: string;
+  amount: number | null;
+  observation: string;
 }
 
 export interface ServiceOrderPdfData {
@@ -22,8 +26,6 @@ export interface ServiceOrderPdfData {
   plate: string;
   version: string;
   failures: ServiceOrderPdfFailure[];
-  authorizedWorkDescription: string;
-  vehicleOperationObservations: string;
   importantInformation: string;
   informationalNote: string;
   compressionLeakDetected: boolean;
@@ -123,14 +125,32 @@ export const mapServiceOrderToPdfData = (
   const selectedFailures = new Map(
     order.reportedFailures.map((failure) => [failure.reportedFailureTypeId, failure])
   );
+  const hasStructuredLines = order.reportedFailures.some((failure) => (
+    decodeServiceOrderLine(failure.otherText).structured
+  ));
+  const legacyTargetId = hasStructuredLines
+    ? null
+    : order.reportedFailures[0]?.reportedFailureTypeId ?? null;
+  const legacyAuthorizedWork = getAuthorizedWork(order);
   const failures = [...failureTypes]
     .sort((a, b) => a.displayOrder - b.displayOrder)
     .map((failureType) => {
       const selected = selectedFailures.get(failureType.id);
+      const line = decodeServiceOrderLine(selected?.otherText);
+      const receivesLegacyFields = selected && failureType.id === legacyTargetId;
       return {
         label: failureType.label,
         selected: Boolean(selected),
-        detail: selected?.otherText,
+        detail: failureType.allowsFreeText ? line.customFailure || undefined : undefined,
+        conceptName: line.conceptName || (receivesLegacyFields ? legacyAuthorizedWork : ''),
+        amount: line.amount ?? (
+          receivesLegacyFields && order.reportedFailures.length === 1 && order.subtotal !== undefined
+            ? Number(order.subtotal)
+            : null
+        ),
+        observation: line.observation || (
+          receivesLegacyFields ? order.vehicleOperationObservations?.trim() ?? '' : ''
+        ),
       };
     });
 
@@ -139,10 +159,17 @@ export const mapServiceOrderToPdfData = (
     .filter((failure) => !knownTypeIds.has(failure.reportedFailureTypeId))
     .sort((a, b) => a.displayOrderSnapshot - b.displayOrderSnapshot)
     .forEach((failure) => {
+      const line = decodeServiceOrderLine(failure.otherText);
+      const receivesLegacyFields = failure.reportedFailureTypeId === legacyTargetId;
       failures.push({
         label: failure.labelSnapshot,
         selected: true,
-        detail: failure.otherText,
+        detail: line.customFailure || undefined,
+        conceptName: line.conceptName || (receivesLegacyFields ? legacyAuthorizedWork : ''),
+        amount: line.amount ?? null,
+        observation: line.observation || (
+          receivesLegacyFields ? order.vehicleOperationObservations?.trim() ?? '' : ''
+        ),
       });
     });
 
@@ -171,8 +198,6 @@ export const mapServiceOrderToPdfData = (
     plate: getSnapshotText(vehicle, 'plate', 'plates', 'placas') ?? '',
     version: getSnapshotText(vehicle, 'version') ?? '',
     failures,
-    authorizedWorkDescription: getAuthorizedWork(order),
-    vehicleOperationObservations: order.vehicleOperationObservations?.trim() ?? '',
     importantInformation: order.importantInformation?.trim() ?? '',
     informationalNote: order.informationalNote?.trim() ?? '',
     compressionLeakDetected: Boolean(order.compressionLeakDetected),

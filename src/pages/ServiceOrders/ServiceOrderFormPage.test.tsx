@@ -36,6 +36,20 @@ const renderForm = () => {
 };
 
 describe('formulario de órdenes de servicio', () => {
+  it('captura concepto, costo y observación dentro del renglón seleccionado', async () => {
+    server.use(http.get(`${apiBaseUrl}/users`, () => HttpResponse.json([])));
+    renderForm();
+
+    await screen.findByDisplayValue('Pedro Antonio Félix · 8125049511');
+    expect(screen.queryByRole('textbox', { name: /Concepto o nota/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Servicio radiador' }));
+
+    expect(await screen.findByRole('textbox', { name: /Concepto o nota/ })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: /Costo/ })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Observación/ })).toBeInTheDocument();
+  });
+
   it('regresa al expediente cuando la orden se abrió desde clientes', async () => {
     server.use(http.get(`${apiBaseUrl}/users`, () => HttpResponse.json([])));
     const queryClient = new QueryClient({

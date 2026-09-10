@@ -14,7 +14,10 @@ export type ServiceOrderSearchParams = NonNullable<
 export interface ServiceOrderFailureFormValue {
   reportedFailureTypeId: number;
   selected: boolean;
-  otherText: string;
+  customFailure: string;
+  conceptName: string;
+  amount: number | null;
+  observation: string;
   externalId?: string;
 }
 
@@ -23,8 +26,6 @@ export interface ServiceOrderFormValues {
   clientVehicleId: number | null;
   serviceDate: string;
   workManagerUserId: string;
-  authorizedWorkDescription: string;
-  vehicleOperationObservations: string;
   importantInformation: string;
   informationalNote: string;
   compressionLeakDetected: boolean;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ReportedFailureType, ServiceOrder } from '../../../types/serviceOrder.types';
 import { mapServiceOrderToPdfData } from './serviceOrderPdfData';
+import { encodeServiceOrderLine } from '../serviceOrderLineCodec';
 
 const failureTypes: ReportedFailureType[] = [
   { id: 1, code: 'RADIADOR', label: 'Servicio radiador', displayOrder: 1, allowsFreeText: false, active: true },
@@ -36,7 +37,12 @@ const order: ServiceOrder = {
     failureCodeSnapshot: 'OTROS',
     labelSnapshot: 'Otros',
     displayOrderSnapshot: 2,
-    otherText: 'Revisar deposito',
+    otherText: encodeServiceOrderLine({
+      customFailure: 'Revisar deposito',
+      conceptName: 'Cambio de radiador',
+      amount: 1000,
+      observation: 'Depósito deteriorado',
+    }),
   }],
   items: [],
 };
@@ -51,8 +57,8 @@ describe('mapServiceOrderToPdfData', () => {
     expect(result.brand).toBe('Ford');
     expect(result.model).toBe('Lobo');
     expect(result.failures).toEqual([
-      { label: 'Servicio radiador', selected: false, detail: undefined },
-      { label: 'Otros', selected: true, detail: 'Revisar deposito' },
+      { label: 'Servicio radiador', selected: false, detail: undefined, conceptName: '', amount: null, observation: '' },
+      { label: 'Otros', selected: true, detail: 'Revisar deposito', conceptName: 'Cambio de radiador', amount: 1000, observation: 'Depósito deteriorado' },
     ]);
     expect(result.reportedFailureSummary).toBe('Revisar deposito');
     expect(result.warrantyLegalText).toBe('Garantia de prueba');

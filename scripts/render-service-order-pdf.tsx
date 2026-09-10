@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { ServiceOrderPdfDocument } from '../src/pages/ServiceOrders/pdf/ServiceOrderPdfDocument';
 import { mapServiceOrderToPdfData } from '../src/pages/ServiceOrders/pdf/serviceOrderPdfData';
 import type { ReportedFailureType, ServiceOrder } from '../src/types/serviceOrder.types';
+import { encodeServiceOrderLine } from '../src/pages/ServiceOrders/serviceOrderLineCodec';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outputDirectory = path.join(root, 'output', 'pdf');
@@ -58,9 +59,33 @@ const order: ServiceOrder = {
   },
   version: 1,
   reportedFailures: [
-    { id: 1, externalId: '60edb6f2-0426-4dff-921d-3e1543bb3d31', reportedFailureTypeId: 7, failureCodeSnapshot: 'ABANICO', labelSnapshot: 'Abanico de clutch o electrico', displayOrderSnapshot: 7 },
-    { id: 2, externalId: '7bc97afd-3758-45af-979b-dba2f51af432', reportedFailureTypeId: 9, failureCodeSnapshot: 'TAPON', labelSnapshot: 'Tapon', displayOrderSnapshot: 9 },
-    { id: 3, externalId: '37df4ef1-255c-4914-ae15-6780d33d2852', reportedFailureTypeId: 12, failureCodeSnapshot: 'ANTICONGELANTE', labelSnapshot: 'Anticongelante', displayOrderSnapshot: 12 },
+    {
+      id: 1,
+      externalId: '60edb6f2-0426-4dff-921d-3e1543bb3d31',
+      reportedFailureTypeId: 7,
+      failureCodeSnapshot: 'ABANICO',
+      labelSnapshot: 'Abanico de clutch o electrico',
+      displayOrderSnapshot: 7,
+      otherText: encodeServiceOrderLine({ customFailure: '', conceptName: 'Revisión de abanico', amount: 250, observation: 'Pendiente revisar funcionamiento eléctrico.' }),
+    },
+    {
+      id: 2,
+      externalId: '7bc97afd-3758-45af-979b-dba2f51af432',
+      reportedFailureTypeId: 9,
+      failureCodeSnapshot: 'TAPON',
+      labelSnapshot: 'Tapon',
+      displayOrderSnapshot: 9,
+      otherText: encodeServiceOrderLine({ customFailure: '', conceptName: 'Tapón nuevo del cliente', amount: 0, observation: 'El tapón anterior no sella correctamente.' }),
+    },
+    {
+      id: 3,
+      externalId: '37df4ef1-255c-4914-ae15-6780d33d2852',
+      reportedFailureTypeId: 12,
+      failureCodeSnapshot: 'ANTICONGELANTE',
+      labelSnapshot: 'Anticongelante',
+      displayOrderSnapshot: 12,
+      otherText: encodeServiceOrderLine({ customFailure: '', conceptName: 'Servicio completo y anticongelante', amount: 3550, observation: 'Mantenimiento completo recomendado.' }),
+    },
   ],
   items: [],
 };

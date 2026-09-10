@@ -57,6 +57,7 @@ import {
   type ServiceOrderUpdateRequest,
 } from '../../types/serviceOrder.types';
 import { serviceOrderSchema } from './serviceOrderSchema';
+import { decodeServiceOrderLine, encodeServiceOrderLine } from './serviceOrderLineCodec';
 import { ServiceOrderPdfActions } from './pdf/ServiceOrderPdfActions';
 import ClientCreateDialog from '../Clients/ClientCreateDialog';
 import ClientVehicleDialog from '../Clients/ClientVehicleDialog';
@@ -98,13 +99,18 @@ const createFormValues = (
   failureTypes: ReportedFailureType[],
   order?: ServiceOrder,
   initialClientId?: number | null
-): ServiceOrderFormValues => ({
+): ServiceOrderFormValues => {
+  const selectedFailures = order?.reportedFailures ?? [];
+  const hasStructuredLines = selectedFailures.some((failure) => (
+    decodeServiceOrderLine(failure.otherText).structured
+  ));
+  const legacyTargetId = hasStructuredLines ? null : selectedFailures[0]?.reportedFailureTypeId ?? null;
+
+  return {
   clientId: order?.clientId ?? initialClientId ?? null,
   clientVehicleId: order?.clientVehicleId ?? null,
   serviceDate: order?.serviceDate ?? localDate(),
   workManagerUserId: order?.workManagerUserId ?? '',
-  authorizedWorkDescription: order?.authorizedWorkDescription ?? '',
-  vehicleOperationObservations: order?.vehicleOperationObservations ?? '',
   importantInformation: order?.importantInformation ?? '',
   informationalNote: order?.informationalNote ?? DEFAULT_INFORMATIONAL_NOTE,
   compressionLeakDetected: order?.compressionLeakDetected ?? false,
@@ -119,42 +125,76 @@ const createFormValues = (
     const selected = order?.reportedFailures.find(
       (failure) => failure.reportedFailureTypeId === type.id
     );
+    const decoded = decodeServiceOrderLine(selected?.otherText);
+    const receivesLegacyFields = selected && type.id === legacyTargetId;
     return {
       reportedFailureTypeId: type.id,
       selected: Boolean(selected),
-      otherText: selected?.otherText ?? '',
+      customFailure: type.allowsFreeText ? decoded.customFailure : '',
+      conceptName: decoded.conceptName || (receivesLegacyFields ? order?.authorizedWorkDescription ?? '' : ''),
+      amount: decoded.amount ?? (
+        receivesLegacyFields && selectedFailures.length === 1 && order?.subtotal !== undefined
+          ? order.subtotal
+          : null
+      ),
+      observation: decoded.observation || (receivesLegacyFields ? order?.vehicleOperationObservations ?? '' : ''),
       externalId: selected?.externalId,
     };
   }),
-});
+  };
+};
 
-const buildWriteFields = (values: ServiceOrderFormValues) => ({
+const buildWriteFields = (values: ServiceOrderFormValues, failureTypes: ReportedFailureType[]) => {
+  const selectedFailures = values.reportedFailures.filter((failure) => failure.selected);
+  const failuresById = new Map(failureTypes.map((type) => [type.id, type]));
+  const hasLineAmounts = selectedFailures.some((failure) => failure.amount !== null);
+  const lineSubtotal = selectedFailures.reduce((sum, failure) => sum + (failure.amount ?? 0), 0);
+  const authorizedWorkDescription = selectedFailures
+    .filter((failure) => failure.conceptName.trim() || failure.amount !== null)
+    .map((failure) => {
+      const label = failuresById.get(failure.reportedFailureTypeId)?.label ?? 'Concepto';
+      const concept = failure.conceptName.trim() || 'Sin descripción';
+      const amount = failure.amount === null
+        ? ''
+        : ` - ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(failure.amount)}`;
+      return `${label}: ${concept}${amount}`;
+    })
+    .join('\n');
+  const vehicleOperationObservations = selectedFailures
+    .filter((failure) => failure.observation.trim())
+    .map((failure) => {
+      const label = failuresById.get(failure.reportedFailureTypeId)?.label ?? 'Concepto';
+      return `${label}: ${failure.observation.trim()}`;
+    })
+    .join('\n');
+
+  return {
   clientVehicleId: values.clientVehicleId as number,
   serviceDate: values.serviceDate,
   workManagerUserId: nullableText(values.workManagerUserId),
-  authorizedWorkDescription: nullableText(values.authorizedWorkDescription),
-  vehicleOperationObservations: nullableText(values.vehicleOperationObservations),
+  authorizedWorkDescription: nullableText(authorizedWorkDescription),
+  vehicleOperationObservations: nullableText(vehicleOperationObservations),
   importantInformation: nullableText(values.importantInformation),
   informationalNote: nullableText(values.informationalNote),
   compressionLeakDetected: values.compressionLeakDetected,
   coolingSystemAirPressureDetected: values.coolingSystemAirPressureDetected,
   radiatorSerialNumber: nullableText(values.radiatorSerialNumber),
   radiatorObstructionLevel: values.radiatorObstructionLevel ?? undefined,
-  subtotal: values.subtotal ?? undefined,
+  subtotal: hasLineAmounts ? lineSubtotal : values.subtotal ?? undefined,
   taxAmount: values.taxAmount,
   warrantyMonths: values.warrantyMonths ?? undefined,
   legalTextSnapshot: { warrantyDisclaimer: WARRANTY_LEGAL_TEXT },
-  reportedFailures: values.reportedFailures
-    .filter((failure) => failure.selected)
+  reportedFailures: selectedFailures
     .map((failure) => ({
       externalId: failure.externalId ?? uuidv4(),
       reportedFailureTypeId: failure.reportedFailureTypeId,
-      otherText: nullableText(failure.otherText),
+      otherText: encodeServiceOrderLine(failure),
     })),
   internalNotes: values.internalNote.trim()
     ? [{ externalId: uuidv4(), note: values.internalNote.trim() }]
     : [],
-});
+  };
+};
 
 const Section = ({
   eyebrow,
@@ -228,13 +268,19 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
       : [selectedClient, ...options];
     return [...availableClients, ADD_NEW_CLIENT_OPTION];
   }, [clientResults?.data, selectedClient]);
-  const total = Number(subtotal || 0) + Number(taxAmount || 0);
+  const hasLineAmounts = reportedFailures.some((failure) => failure.selected && failure.amount !== null);
+  const lineSubtotal = reportedFailures.reduce(
+    (sum, failure) => sum + (failure.selected ? failure.amount ?? 0 : 0),
+    0
+  );
+  const displayedSubtotal = hasLineAmounts ? lineSubtotal : Number(subtotal || 0);
+  const total = displayedSubtotal + Number(taxAmount || 0);
   const backDestination = returnTo ?? '/service-orders';
   const backLabel = returnTo?.startsWith('/clients/') ? 'Volver al cliente' : 'Volver a órdenes';
   const orderReturnQuery = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : '';
 
   const saveValues = async (values: ServiceOrderFormValues) => {
-    const writeFields = buildWriteFields(values);
+    const writeFields = buildWriteFields(values, failureTypes);
     if (order) {
       const payload: ServiceOrderUpdateRequest = {
         ...writeFields,
@@ -493,44 +539,161 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
             </Grid>
           </Section>
 
-          <Section eyebrow="Diagnóstico" title="Detalle del trabajo">
-            <Grid container spacing={{ xs: 3, lg: 0 }}>
-              <Grid size={{ xs: 12, lg: 4 }}>
-                <Box sx={{ height: '100%', pr: { lg: 3 }, borderRight: { lg: 1 }, borderColor: { lg: 'divider' } }}>
-                <Typography variant="subtitle2" fontWeight={750} sx={{ mb: 1 }}>Fallas reportadas (opcional)</Typography>
-                <Stack spacing={0.25}>
-                  {failureTypes.map((type, index) => (
-                    <Box key={type.id}>
+          <Section eyebrow="Diagnóstico" title="Renglones de trabajo">
+            <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
+              Selecciona una falla y captura en el mismo renglón el trabajo o refacción, su costo y las observaciones correspondientes.
+            </Alert>
+
+            <Box
+              sx={{
+                display: { xs: 'none', lg: 'grid' },
+                gridTemplateColumns: 'minmax(220px, 0.9fr) minmax(310px, 0.85fr) minmax(360px, 1.25fr)',
+                border: 1,
+                borderColor: 'divider',
+                borderBottom: 0,
+                bgcolor: 'grey.100',
+              }}
+            >
+              {[
+                'Falla reportada',
+                'Trabajo / refacción autorizada y costo',
+                'Observaciones del funcionamiento o fallas',
+              ].map((label, index) => (
+                <Typography
+                  key={label}
+                  variant="overline"
+                  fontWeight={800}
+                  sx={{
+                    px: 2,
+                    py: 1.25,
+                    lineHeight: 1.2,
+                    borderLeft: index === 0 ? 0 : 1,
+                    borderColor: 'divider',
+                  }}
+                >
+                  {label}
+                </Typography>
+              ))}
+            </Box>
+
+            <Stack spacing={{ xs: 1.5, lg: 0 }}>
+              {failureTypes.map((type, index) => {
+                const isSelected = Boolean(reportedFailures[index]?.selected);
+                return (
+                  <Paper
+                    key={type.id}
+                    variant="outlined"
+                    sx={{
+                      display: { xs: 'block', lg: 'grid' },
+                      gridTemplateColumns: 'minmax(220px, 0.9fr) minmax(310px, 0.85fr) minmax(360px, 1.25fr)',
+                      borderColor: isSelected ? 'primary.light' : 'divider',
+                      borderRadius: { xs: 1, lg: 0 },
+                      bgcolor: isSelected ? 'background.paper' : 'grey.50',
+                      transition: 'border-color 160ms ease, background-color 160ms ease',
+                      '&:not(:last-of-type)': { borderBottomWidth: { lg: 0 } },
+                    }}
+                  >
+                    <Box sx={{ px: 1.5, py: 1.25 }}>
                       <Controller
                         name={`reportedFailures.${index}.selected`}
                         control={control}
                         render={({ field }) => (
-                          <FormControlLabel control={<Checkbox checked={field.value} onChange={(_, checked) => field.onChange(checked)} />} label={type.label} />
+                          <FormControlLabel
+                            sx={{ m: 0 }}
+                            control={<Checkbox checked={field.value} onChange={(_, checked) => field.onChange(checked)} />}
+                            label={<Typography variant="body2" fontWeight={isSelected ? 750 : 500}>{type.label}</Typography>}
+                          />
                         )}
                       />
                       {type.allowsFreeText && (
-                        <Collapse in={Boolean(reportedFailures[index]?.selected)} unmountOnExit>
-                          <Box sx={{ pl: { sm: 4 }, pb: 1.5 }}>
-                            <Controller
-                              name={`reportedFailures.${index}.otherText`}
-                              control={control}
-                              render={({ field }) => <TextField {...field} size="small" fullWidth label="Especificar otro trabajo o falla (opcional)" />}
-                            />
-                          </Box>
+                        <Collapse in={isSelected} unmountOnExit>
+                          <Controller
+                            name={`reportedFailures.${index}.customFailure`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                size="small"
+                                fullWidth
+                                label="Especificar falla (opcional)"
+                                error={Boolean(errors.reportedFailures?.[index]?.customFailure)}
+                                helperText={errors.reportedFailures?.[index]?.customFailure?.message}
+                                sx={{ mt: 1 }}
+                              />
+                            )}
+                          />
                         </Collapse>
                       )}
                     </Box>
-                  ))}
-                </Stack>
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 12, md: 6, lg: 4 }} sx={{ px: { lg: 3 } }}>
-                <Controller name="authorizedWorkDescription" control={control} render={({ field }) => <TextField {...field} fullWidth multiline minRows={16} label="Fallas y refacciones autorizadas (opcional)" />} />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6, lg: 4 }} sx={{ pl: { lg: 3 }, borderLeft: { lg: 1 }, borderColor: { lg: 'divider' } }}>
-                <Controller name="vehicleOperationObservations" control={control} render={({ field }) => <TextField {...field} fullWidth multiline minRows={16} label="Observaciones del funcionamiento o fallas (opcional)" />} />
-              </Grid>
-            </Grid>
+
+                    <Box sx={{ px: 1.5, py: 1.25, borderLeft: { lg: 1 }, borderColor: { lg: 'divider' } }}>
+                      <Collapse in={isSelected} unmountOnExit>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} alignItems="flex-start">
+                          <Controller
+                            name={`reportedFailures.${index}.conceptName`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                size="small"
+                                fullWidth
+                                label="Concepto o nota (opcional)"
+                                placeholder="Ej. Tapón nuevo del cliente"
+                                error={Boolean(errors.reportedFailures?.[index]?.conceptName)}
+                                helperText={errors.reportedFailures?.[index]?.conceptName?.message}
+                              />
+                            )}
+                          />
+                          <Controller
+                            name={`reportedFailures.${index}.amount`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                value={field.value ?? ''}
+                                onChange={(event) => field.onChange(event.target.value === '' ? null : Number(event.target.value))}
+                                size="small"
+                                type="number"
+                                label="Costo (opcional)"
+                                error={Boolean(errors.reportedFailures?.[index]?.amount)}
+                                helperText={errors.reportedFailures?.[index]?.amount?.message}
+                                sx={{ width: { xs: '100%', sm: 145 }, flexShrink: 0 }}
+                                slotProps={{
+                                  input: { startAdornment: <InputAdornment position="start">$</InputAdornment> },
+                                  htmlInput: { min: 0, step: '0.01' },
+                                }}
+                              />
+                            )}
+                          />
+                        </Stack>
+                      </Collapse>
+                    </Box>
+
+                    <Box sx={{ px: 1.5, py: 1.25, borderLeft: { lg: 1 }, borderColor: { lg: 'divider' } }}>
+                      <Collapse in={isSelected} unmountOnExit>
+                        <Controller
+                          name={`reportedFailures.${index}.observation`}
+                          control={control}
+                          render={({ field }) => (
+                            <TextField
+                              {...field}
+                              size="small"
+                              fullWidth
+                              multiline
+                              minRows={2}
+                              label="Observación (opcional)"
+                              placeholder="Ej. El tapón anterior no sella correctamente"
+                              error={Boolean(errors.reportedFailures?.[index]?.observation)}
+                              helperText={errors.reportedFailures?.[index]?.observation?.message}
+                            />
+                          )}
+                        />
+                      </Collapse>
+                    </Box>
+                  </Paper>
+                );
+              })}
+            </Stack>
           </Section>
 
           <Section eyebrow="Revisión técnica" title="Información importante">
@@ -578,7 +741,13 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
           <Section eyebrow="Importes" title="Costo y garantía">
             <Grid container spacing={2.5} alignItems="flex-start">
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Controller name="subtotal" control={control} render={({ field }) => <TextField {...field} value={field.value ?? ''} onChange={(event) => field.onChange(event.target.value === '' ? null : Number(event.target.value))} fullWidth type="number" label="Costo del trabajo (opcional)" error={Boolean(errors.subtotal)} helperText={errors.subtotal?.message} slotProps={{ input: { startAdornment: <InputAdornment position="start">$</InputAdornment> }, htmlInput: { min: 0, step: '0.01' } }} />} />
+                <TextField
+                  value={new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(displayedSubtotal)}
+                  fullWidth
+                  label="Costo del trabajo"
+                  helperText={hasLineAmounts ? 'Suma automática de los costos capturados.' : 'Conserva el subtotal anterior hasta capturar costos por renglón.'}
+                  slotProps={{ input: { readOnly: true } }}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Controller name="taxAmount" control={control} render={({ field }) => <TextField {...field} onChange={(event) => field.onChange(event.target.value === '' ? 0 : Number(event.target.value))} fullWidth required type="number" label="IVA" error={Boolean(errors.taxAmount)} helperText={errors.taxAmount?.message ?? 'Importe manual según el contrato.'} slotProps={{ input: { startAdornment: <InputAdornment position="start">$</InputAdornment> }, htmlInput: { min: 0, step: '0.01' } }} />} />

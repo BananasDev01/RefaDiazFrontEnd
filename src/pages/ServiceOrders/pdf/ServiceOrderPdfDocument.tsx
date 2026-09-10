@@ -86,19 +86,28 @@ const styles = StyleSheet.create({
   inlineLabel: { fontFamily: 'Helvetica-Bold', fontSize: 5.7, marginRight: 4, paddingBottom: 1.5 },
   inlineValue: { flexGrow: 1, borderBottomWidth: 0.6, borderBottomColor: LINE, minHeight: 11, fontSize: 7.3, paddingHorizontal: 2, paddingBottom: 1 },
   reception: { height: 59, borderBottomWidth: 0.8, borderBottomColor: LINE, paddingVertical: 2 },
-  diagnostic: { height: 265, flexDirection: 'row', borderBottomWidth: 0.8, borderBottomColor: LINE },
-  diagnosticColumn: { height: '100%', borderRightWidth: 0.8, borderRightColor: LINE },
-  diagnosticColumnLast: { height: '100%' },
-  columnHeader: { height: 24, paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center', backgroundColor: SOFT, borderBottomWidth: 0.8, borderBottomColor: LINE },
+  diagnostic: { height: 265, borderBottomWidth: 0.8, borderBottomColor: LINE },
+  diagnosticHeaderRow: { height: 26, flexDirection: 'row' },
+  columnHeader: { height: 26, paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center', backgroundColor: SOFT, borderBottomWidth: 0.8, borderBottomColor: LINE, borderRightWidth: 0.8, borderRightColor: LINE },
+  columnHeaderLast: { height: 26, paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center', backgroundColor: SOFT, borderBottomWidth: 0.8, borderBottomColor: LINE },
   columnHeaderText: { fontFamily: 'Helvetica-Bold', fontSize: 6.2, textAlign: 'center', lineHeight: 1.15 },
-  columnBody: { flexGrow: 1, padding: 5, overflow: 'hidden' },
-  failureRow: { flexDirection: 'row', alignItems: 'flex-start', minHeight: 13 },
+  diagnosticRows: { flexGrow: 1, overflow: 'hidden' },
+  diagnosticRow: { flexDirection: 'row', minHeight: 14 },
+  failureCell: { width: '31%', flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 5, paddingVertical: 3, borderRightWidth: 0.8, borderRightColor: LINE, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
+  conceptCell: { width: '29%', flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 5, paddingVertical: 3, borderRightWidth: 0.8, borderRightColor: LINE, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
+  observationCell: { width: '40%', paddingHorizontal: 5, paddingVertical: 3, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
   checkbox: { width: 7, height: 7, borderWidth: 0.7, borderColor: LINE, marginRight: 4, marginTop: 0.3, alignItems: 'center', justifyContent: 'center' },
   checkboxSelected: { borderColor: RED, backgroundColor: RED },
   checkboxMark: { fontFamily: 'Helvetica-Bold', fontSize: 5.5, color: PAPER },
   failureText: { flexGrow: 1, fontSize: 6.25, lineHeight: 1.18 },
+  conceptText: { flexGrow: 1, fontSize: 6.25, lineHeight: 1.18, paddingRight: 3 },
+  conceptAmount: { width: 45, fontFamily: 'Helvetica-Bold', fontSize: 6.25, textAlign: 'right' },
+  observationText: { fontSize: 6.25, lineHeight: 1.18 },
   bodyText: { fontSize: 7.1, lineHeight: 1.35 },
-  technicalWarnings: { marginTop: 'auto', paddingTop: 4, borderTopWidth: 0.6, borderTopColor: RED },
+  technicalWarnings: { marginTop: 'auto', minHeight: 43, flexDirection: 'row', borderTopWidth: 0.7, borderTopColor: RED },
+  warningCell: { width: '31%', paddingHorizontal: 5, paddingVertical: 4, borderRightWidth: 0.8, borderRightColor: LINE },
+  warningBlankMiddle: { width: '29%', borderRightWidth: 0.8, borderRightColor: LINE },
+  warningBlankLast: { width: '40%' },
   warningRow: { flexDirection: 'row', marginBottom: 3 },
   warningText: { flexGrow: 1, color: RED, fontFamily: 'Helvetica-Bold', fontSize: 5.6, lineHeight: 1.15 },
   infoSection: { height: 126, borderBottomWidth: 0.8, borderBottomColor: LINE },
@@ -159,11 +168,24 @@ const Check = ({ checked }: { checked: boolean }) => (
 );
 
 const FailureRow = ({ failure }: { failure: ServiceOrderPdfFailure }) => (
-  <View style={styles.failureRow}>
-    <Check checked={failure.selected} />
-    <Text style={styles.failureText}>
-      {failure.label.toUpperCase()}{failure.detail ? `: ${failure.detail}` : ''}
-    </Text>
+  <View style={styles.diagnosticRow}>
+    <View style={styles.failureCell}>
+      <Check checked={failure.selected} />
+      <Text style={styles.failureText}>
+        {failure.label.toUpperCase()}{failure.detail ? `: ${failure.detail}` : ''}
+      </Text>
+    </View>
+    <View style={styles.conceptCell}>
+      {failure.selected && (
+        <>
+          <Text style={styles.conceptText}>{failure.conceptName || ' '}</Text>
+          {failure.amount !== null && <Text style={styles.conceptAmount}>{money(failure.amount)}</Text>}
+        </>
+      )}
+    </View>
+    <View style={styles.observationCell}>
+      <Text style={styles.observationText}>{failure.selected ? failure.observation || ' ' : ' '}</Text>
+    </View>
   </View>
 );
 
@@ -277,23 +299,27 @@ export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDoc
           </View>
 
           <View style={styles.diagnostic}>
-            <View style={[styles.diagnosticColumn, { width: '31%' }]}>
-              <View style={styles.columnHeader}><Text style={styles.columnHeaderText}>FALLAS REPORTADAS</Text></View>
-              <View style={styles.columnBody}>
-                {data.failures.map((failure, index) => <FailureRow key={`${failure.label}-${index}`} failure={failure} />)}
-                <View style={styles.technicalWarnings}>
+            <View style={styles.diagnosticHeaderRow}>
+              <View style={[styles.columnHeader, { width: '31%' }]}>
+                <Text style={styles.columnHeaderText}>FALLAS REPORTADAS</Text>
+              </View>
+              <View style={[styles.columnHeader, { width: '29%' }]}>
+                <Text style={styles.columnHeaderText}>TRABAJO / REFACCIÓN AUTORIZADA{`\n`}Y COSTO</Text>
+              </View>
+              <View style={[styles.columnHeaderLast, { width: '40%' }]}>
+                <Text style={styles.columnHeaderText}>OBSERVACIONES DEL FUNCIONAMIENTO O{`\n`}FALLAS DEL AUTOMÓVIL</Text>
+              </View>
+            </View>
+            <View style={styles.diagnosticRows}>
+              {data.failures.map((failure, index) => <FailureRow key={`${failure.label}-${index}`} failure={failure} />)}
+              <View style={styles.technicalWarnings}>
+                <View style={styles.warningCell}>
                   <Warning checked={data.compressionLeakDetected}>FUGA DE COMPRESION DETECTADA. EL VEHICULO NO DEBE CIRCULAR EN ESTAS CONDICIONES.</Warning>
                   <Warning checked={data.coolingSystemAirPressureDetected}>SE ENCUENTRA AIRE EN EL SISTEMA DE ENFRIAMIENTO GENERANDO PRESION CONTROLADA.</Warning>
                 </View>
+                <View style={styles.warningBlankMiddle} />
+                <View style={styles.warningBlankLast} />
               </View>
-            </View>
-            <View style={[styles.diagnosticColumn, { width: '34.5%' }]}>
-              <View style={styles.columnHeader}><Text style={styles.columnHeaderText}>FALLAS Y REFACCIONES{`\n`}AUTORIZADAS POR EL CLIENTE</Text></View>
-              <View style={styles.columnBody}><Text style={styles.bodyText}>{data.authorizedWorkDescription || ' '}</Text></View>
-            </View>
-            <View style={[styles.diagnosticColumnLast, { width: '34.5%' }]}>
-              <View style={styles.columnHeader}><Text style={styles.columnHeaderText}>OBSERVACIONES DEL FUNCIONAMIENTO O{`\n`}FALLAS DEL AUTOMÓVIL</Text></View>
-              <View style={styles.columnBody}><Text style={styles.bodyText}>{data.vehicleOperationObservations || ' '}</Text></View>
             </View>
           </View>
 

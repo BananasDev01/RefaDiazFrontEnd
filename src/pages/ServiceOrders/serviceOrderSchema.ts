@@ -6,8 +6,6 @@ export const serviceOrderSchema: yup.ObjectSchema<ServiceOrderFormValues> = yup.
   clientVehicleId: yup.number().nullable().required('Selecciona el vehículo que ingresará al taller.'),
   serviceDate: yup.string().required('La fecha es obligatoria.'),
   workManagerUserId: yup.string().defined(),
-  authorizedWorkDescription: yup.string().trim().max(4000).defined(),
-  vehicleOperationObservations: yup.string().trim().max(4000).defined(),
   importantInformation: yup.string().trim().max(4000).defined(),
   informationalNote: yup.string().trim().max(2000).defined(),
   compressionLeakDetected: yup.boolean().required(),
@@ -34,7 +32,10 @@ export const serviceOrderSchema: yup.ObjectSchema<ServiceOrderFormValues> = yup.
   reportedFailures: yup.array().of(yup.object({
     reportedFailureTypeId: yup.number().required(),
     selected: yup.boolean().required(),
-    otherText: yup.string().trim().max(500).defined(),
+    customFailure: yup.string().trim().max(80).defined(),
+    conceptName: yup.string().trim().max(140).defined(),
+    amount: yup.number().nullable().min(0, 'El costo no puede ser negativo.').defined(),
+    observation: yup.string().trim().max(220).defined(),
     externalId: yup.string().optional(),
   })).required(),
 });
