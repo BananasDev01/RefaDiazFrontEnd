@@ -5,6 +5,7 @@ export const serviceOrderSchema: yup.ObjectSchema<ServiceOrderFormValues> = yup.
   clientId: yup.number().nullable().required('Selecciona un cliente.'),
   clientVehicleId: yup.number().nullable().required('Selecciona el vehículo que ingresará al taller.'),
   serviceDate: yup.string().required('La fecha es obligatoria.'),
+  reportedFailureSummary: yup.string().trim().max(4000).defined(),
   workManagerUserId: yup.string().defined(),
   importantInformation: yup.string().trim().max(4000).defined(),
   informationalNote: yup.string().trim().max(2000).defined(),
@@ -23,6 +24,7 @@ export const serviceOrderSchema: yup.ObjectSchema<ServiceOrderFormValues> = yup.
     .nullable()
     .min(0, 'El subtotal no puede ser negativo.')
     .defined(),
+  preserveLegacySubtotal: yup.boolean().required(),
   taxAmount: yup
     .number()
     .required('Captura el IVA, incluso cuando sea $0.')
@@ -33,9 +35,8 @@ export const serviceOrderSchema: yup.ObjectSchema<ServiceOrderFormValues> = yup.
     reportedFailureTypeId: yup.number().required(),
     selected: yup.boolean().required(),
     customFailure: yup.string().trim().max(80).defined(),
-    conceptName: yup.string().trim().max(140).defined(),
     amount: yup.number().nullable().min(0, 'El costo no puede ser negativo.').defined(),
-    observation: yup.string().trim().max(220).defined(),
+    observation: yup.string().trim().max(4000).defined(),
     externalId: yup.string().optional(),
   })).required(),
 });

@@ -36,7 +36,7 @@ const renderForm = () => {
 };
 
 describe('formulario de órdenes de servicio', () => {
-  it('captura concepto, costo y observación dentro del renglón seleccionado', async () => {
+  it('captura solo costo y observación dentro del renglón seleccionado', async () => {
     server.use(http.get(`${apiBaseUrl}/users`, () => HttpResponse.json([])));
     renderForm();
 
@@ -45,7 +45,7 @@ describe('formulario de órdenes de servicio', () => {
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Servicio radiador' }));
 
-    expect(await screen.findByRole('textbox', { name: /Concepto o nota/ })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /Concepto o nota/ })).not.toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: /Costo/ })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /Observación/ })).toBeInTheDocument();
   });

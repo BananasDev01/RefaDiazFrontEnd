@@ -15,7 +15,6 @@ export interface ServiceOrderFailureFormValue {
   reportedFailureTypeId: number;
   selected: boolean;
   customFailure: string;
-  conceptName: string;
   amount: number | null;
   observation: string;
   externalId?: string;
@@ -25,6 +24,7 @@ export interface ServiceOrderFormValues {
   clientId: number | null;
   clientVehicleId: number | null;
   serviceDate: string;
+  reportedFailureSummary: string;
   workManagerUserId: string;
   importantInformation: string;
   informationalNote: string;
@@ -33,6 +33,7 @@ export interface ServiceOrderFormValues {
   radiatorSerialNumber: string;
   radiatorObstructionLevel: number | null;
   subtotal: number | null;
+  preserveLegacySubtotal: boolean;
   taxAmount: number;
   warrantyMonths: WarrantyMonths | null;
   internalNote: string;

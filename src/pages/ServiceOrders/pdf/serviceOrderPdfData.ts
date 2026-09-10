@@ -1,6 +1,7 @@
 import type { ReportedFailureType, ServiceOrder } from '../../../types/serviceOrder.types';
 import { getSnapshotText } from '../../../types/serviceOrder.types';
 import { decodeServiceOrderLine } from '../serviceOrderLineCodec';
+import { combinedAirPressureWarning, mergeObservations } from '../serviceOrderText';
 
 export const DEFAULT_WARRANTY_LEGAL_TEXT = 'Radiadores Díaz se obliga por esta garantía a reparar, reemplazar o cubrir únicamente el valor del producto en cuestión. En ningún caso cubrirá materiales, mano de obra o partes suministradas, ni daños incidentales o consecuenciales derivados de una garantía.';
 
@@ -8,7 +9,6 @@ export interface ServiceOrderPdfFailure {
   label: string;
   selected: boolean;
   detail?: string;
-  conceptName: string;
   amount: number | null;
   observation: string;
 }
@@ -142,15 +142,14 @@ export const mapServiceOrderToPdfData = (
         label: failureType.label,
         selected: Boolean(selected),
         detail: failureType.allowsFreeText ? line.customFailure || undefined : undefined,
-        conceptName: line.conceptName || (receivesLegacyFields ? legacyAuthorizedWork : ''),
         amount: line.amount ?? (
           receivesLegacyFields && order.reportedFailures.length === 1 && order.subtotal !== undefined
             ? Number(order.subtotal)
             : null
         ),
-        observation: line.observation || (
-          receivesLegacyFields ? order.vehicleOperationObservations?.trim() ?? '' : ''
-        ),
+        observation: mergeObservations(line.conceptName, line.observation,
+          receivesLegacyFields ? legacyAuthorizedWork : '',
+          receivesLegacyFields ? order.vehicleOperationObservations : ''),
       };
     });
 
@@ -165,11 +164,10 @@ export const mapServiceOrderToPdfData = (
         label: failure.labelSnapshot,
         selected: true,
         detail: line.customFailure || undefined,
-        conceptName: line.conceptName || (receivesLegacyFields ? legacyAuthorizedWork : ''),
         amount: line.amount ?? null,
-        observation: line.observation || (
-          receivesLegacyFields ? order.vehicleOperationObservations?.trim() ?? '' : ''
-        ),
+        observation: mergeObservations(line.conceptName, line.observation,
+          receivesLegacyFields ? legacyAuthorizedWork : '',
+          receivesLegacyFields ? order.vehicleOperationObservations : ''),
       });
     });
 
@@ -190,7 +188,7 @@ export const mapServiceOrderToPdfData = (
       ?? nestedSnapshotText(vehicle, 'carModel', 'brandName', 'brand_name')
       ?? nestedSnapshotText(asRecord(vehicle.carModel), 'brand', 'name')
       ?? '',
-    model: getSnapshotText(vehicle, 'model', 'modelName', 'model_name', 'modelo')
+    model: getSnapshotText(vehicle, 'model', 'modelName', 'model_name', 'carModelName', 'car_model_name', 'modelo')
       ?? nestedSnapshotText(vehicle, 'carModel', 'name', 'modelName')
       ?? '',
     modelYear: getSnapshotText(vehicle, 'modelYear', 'model_year', 'year', 'anio') ?? '',
@@ -198,8 +196,10 @@ export const mapServiceOrderToPdfData = (
     plate: getSnapshotText(vehicle, 'plate', 'plates', 'placas') ?? '',
     version: getSnapshotText(vehicle, 'version') ?? '',
     failures,
-    importantInformation: order.importantInformation?.trim() ?? '',
-    informationalNote: order.informationalNote?.trim() ?? '',
+    importantInformation: mergeObservations(order.importantInformation,
+      order.reportedFailures.length === 0 ? legacyAuthorizedWork : '',
+      order.reportedFailures.length === 0 ? order.vehicleOperationObservations : ''),
+    informationalNote: combinedAirPressureWarning(order.informationalNote),
     compressionLeakDetected: Boolean(order.compressionLeakDetected),
     coolingSystemAirPressureDetected: Boolean(order.coolingSystemAirPressureDetected),
     radiatorSerialNumber: order.radiatorSerialNumber?.trim() ?? '',

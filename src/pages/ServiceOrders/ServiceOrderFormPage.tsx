@@ -57,12 +57,12 @@ import {
   type ServiceOrderUpdateRequest,
 } from '../../types/serviceOrder.types';
 import { serviceOrderSchema } from './serviceOrderSchema';
-import { decodeServiceOrderLine, encodeServiceOrderLine } from './serviceOrderLineCodec';
+import { buildWriteFields, createFormValues } from './serviceOrderFormData';
+import { combinedAirPressureWarning, COMPRESSION_WARNING, sumLineAmounts } from './serviceOrderText';
 import { ServiceOrderPdfActions } from './pdf/ServiceOrderPdfActions';
 import ClientCreateDialog from '../Clients/ClientCreateDialog';
 import ClientVehicleDialog from '../Clients/ClientVehicleDialog';
 
-const DEFAULT_INFORMATIONAL_NOTE = 'Si aún con el mantenimiento vuelve a presentar calentamiento o gorgoteo en el recuperador, revisar con un mecánico fuga de compresión.';
 const WARRANTY_LEGAL_TEXT = 'Radiadores Díaz se obliga por esta garantía a reparar, reemplazar o cubrir únicamente el valor del producto en cuestión. En ningún caso cubrirá materiales, mano de obra o partes suministradas, ni daños incidentales o consecuenciales derivados de una garantía.';
 const warrantyOptions = [0, 3, 6, 12] as const;
 const ADD_NEW_CLIENT_ID = -1;
@@ -77,14 +77,6 @@ const ADD_NEW_CLIENT_OPTION: Client = {
   vehicles: [],
 };
 
-const localDate = () => {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
-};
-
-const nullableText = (value: string) => value.trim() || undefined;
-
 const vehicleLabel = (vehicle: ClientVehicle) => {
   const name = [vehicle.carModel?.brand?.name, vehicle.carModel?.name, vehicle.modelYear]
     .filter(Boolean)
@@ -93,107 +85,6 @@ const vehicleLabel = (vehicle: ClientVehicle) => {
     .filter(Boolean)
     .join(' · ');
   return [name || 'Vehiculo sin modelo', details].filter(Boolean).join(' — ');
-};
-
-const createFormValues = (
-  failureTypes: ReportedFailureType[],
-  order?: ServiceOrder,
-  initialClientId?: number | null
-): ServiceOrderFormValues => {
-  const selectedFailures = order?.reportedFailures ?? [];
-  const hasStructuredLines = selectedFailures.some((failure) => (
-    decodeServiceOrderLine(failure.otherText).structured
-  ));
-  const legacyTargetId = hasStructuredLines ? null : selectedFailures[0]?.reportedFailureTypeId ?? null;
-
-  return {
-  clientId: order?.clientId ?? initialClientId ?? null,
-  clientVehicleId: order?.clientVehicleId ?? null,
-  serviceDate: order?.serviceDate ?? localDate(),
-  workManagerUserId: order?.workManagerUserId ?? '',
-  importantInformation: order?.importantInformation ?? '',
-  informationalNote: order?.informationalNote ?? DEFAULT_INFORMATIONAL_NOTE,
-  compressionLeakDetected: order?.compressionLeakDetected ?? false,
-  coolingSystemAirPressureDetected: order?.coolingSystemAirPressureDetected ?? false,
-  radiatorSerialNumber: order?.radiatorSerialNumber ?? '',
-  radiatorObstructionLevel: order?.radiatorObstructionLevel ?? null,
-  subtotal: order?.subtotal ?? null,
-  taxAmount: order?.taxAmount ?? 0,
-  warrantyMonths: order?.warrantyMonths ?? null,
-  internalNote: '',
-  reportedFailures: failureTypes.map((type) => {
-    const selected = order?.reportedFailures.find(
-      (failure) => failure.reportedFailureTypeId === type.id
-    );
-    const decoded = decodeServiceOrderLine(selected?.otherText);
-    const receivesLegacyFields = selected && type.id === legacyTargetId;
-    return {
-      reportedFailureTypeId: type.id,
-      selected: Boolean(selected),
-      customFailure: type.allowsFreeText ? decoded.customFailure : '',
-      conceptName: decoded.conceptName || (receivesLegacyFields ? order?.authorizedWorkDescription ?? '' : ''),
-      amount: decoded.amount ?? (
-        receivesLegacyFields && selectedFailures.length === 1 && order?.subtotal !== undefined
-          ? order.subtotal
-          : null
-      ),
-      observation: decoded.observation || (receivesLegacyFields ? order?.vehicleOperationObservations ?? '' : ''),
-      externalId: selected?.externalId,
-    };
-  }),
-  };
-};
-
-const buildWriteFields = (values: ServiceOrderFormValues, failureTypes: ReportedFailureType[]) => {
-  const selectedFailures = values.reportedFailures.filter((failure) => failure.selected);
-  const failuresById = new Map(failureTypes.map((type) => [type.id, type]));
-  const hasLineAmounts = selectedFailures.some((failure) => failure.amount !== null);
-  const lineSubtotal = selectedFailures.reduce((sum, failure) => sum + (failure.amount ?? 0), 0);
-  const authorizedWorkDescription = selectedFailures
-    .filter((failure) => failure.conceptName.trim() || failure.amount !== null)
-    .map((failure) => {
-      const label = failuresById.get(failure.reportedFailureTypeId)?.label ?? 'Concepto';
-      const concept = failure.conceptName.trim() || 'Sin descripción';
-      const amount = failure.amount === null
-        ? ''
-        : ` - ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(failure.amount)}`;
-      return `${label}: ${concept}${amount}`;
-    })
-    .join('\n');
-  const vehicleOperationObservations = selectedFailures
-    .filter((failure) => failure.observation.trim())
-    .map((failure) => {
-      const label = failuresById.get(failure.reportedFailureTypeId)?.label ?? 'Concepto';
-      return `${label}: ${failure.observation.trim()}`;
-    })
-    .join('\n');
-
-  return {
-  clientVehicleId: values.clientVehicleId as number,
-  serviceDate: values.serviceDate,
-  workManagerUserId: nullableText(values.workManagerUserId),
-  authorizedWorkDescription: nullableText(authorizedWorkDescription),
-  vehicleOperationObservations: nullableText(vehicleOperationObservations),
-  importantInformation: nullableText(values.importantInformation),
-  informationalNote: nullableText(values.informationalNote),
-  compressionLeakDetected: values.compressionLeakDetected,
-  coolingSystemAirPressureDetected: values.coolingSystemAirPressureDetected,
-  radiatorSerialNumber: nullableText(values.radiatorSerialNumber),
-  radiatorObstructionLevel: values.radiatorObstructionLevel ?? undefined,
-  subtotal: hasLineAmounts ? lineSubtotal : values.subtotal ?? undefined,
-  taxAmount: values.taxAmount,
-  warrantyMonths: values.warrantyMonths ?? undefined,
-  legalTextSnapshot: { warrantyDisclaimer: WARRANTY_LEGAL_TEXT },
-  reportedFailures: selectedFailures
-    .map((failure) => ({
-      externalId: failure.externalId ?? uuidv4(),
-      reportedFailureTypeId: failure.reportedFailureTypeId,
-      otherText: encodeServiceOrderLine(failure),
-    })),
-  internalNotes: values.internalNote.trim()
-    ? [{ externalId: uuidv4(), note: values.internalNote.trim() }]
-    : [],
-  };
 };
 
 const Section = ({
@@ -259,6 +150,7 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
   const selectedClientId = useWatch({ control, name: 'clientId' });
   const subtotal = useWatch({ control, name: 'subtotal' }) ?? 0;
   const taxAmount = useWatch({ control, name: 'taxAmount' }) ?? 0;
+  const informationalNote = useWatch({ control, name: 'informationalNote' });
   const reportedFailures = useWatch({ control, name: 'reportedFailures' });
   const { data: selectedClient, isLoading: isLoadingClient } = useClient(selectedClientId);
   const clientOptions = useMemo(() => {
@@ -268,13 +160,10 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
       : [selectedClient, ...options];
     return [...availableClients, ADD_NEW_CLIENT_OPTION];
   }, [clientResults?.data, selectedClient]);
-  const hasLineAmounts = reportedFailures.some((failure) => failure.selected && failure.amount !== null);
-  const lineSubtotal = reportedFailures.reduce(
-    (sum, failure) => sum + (failure.selected ? failure.amount ?? 0 : 0),
-    0
-  );
-  const displayedSubtotal = hasLineAmounts ? lineSubtotal : Number(subtotal || 0);
-  const total = displayedSubtotal + Number(taxAmount || 0);
+  const preserveLegacySubtotal = useWatch({ control, name: 'preserveLegacySubtotal' });
+  const lineSubtotal = sumLineAmounts(reportedFailures);
+  const displayedSubtotal = preserveLegacySubtotal ? Number(subtotal || 0) : lineSubtotal;
+  const total = (Math.round(displayedSubtotal * 100) + Math.round(Number(taxAmount || 0) * 100)) / 100;
   const backDestination = returnTo ?? '/service-orders';
   const backLabel = returnTo?.startsWith('/clients/') ? 'Volver al cliente' : 'Volver a órdenes';
   const orderReturnQuery = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : '';
@@ -352,7 +241,7 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
           ? `Orden ${order.folioNumber ? `${order.folioSeries}-${order.folioNumber}` : order.provisionalReference}`
           : 'Nueva orden de servicio'}
         actionButton={(
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} useFlexGap sx={{ flexWrap: 'wrap', justifyContent: 'flex-end', minWidth: { sm: 340 } }}>
             {order && (
               <ServiceOrderPdfActions
                 order={order}
@@ -516,6 +405,9 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
               <Grid size={{ xs: 12, md: 2 }}>
                 <Controller name="serviceDate" control={control} render={({ field }) => <TextField {...field} fullWidth required type="date" label="Fecha" slotProps={{ inputLabel: { shrink: true } }} error={Boolean(errors.serviceDate)} helperText={errors.serviceDate?.message} />} />
               </Grid>
+              <Grid size={12}>
+                <Controller name="reportedFailureSummary" control={control} render={({ field }) => <TextField {...field} fullWidth multiline minRows={2} label="Falla general / motivo de ingreso (opcional)" error={Boolean(errors.reportedFailureSummary)} helperText={errors.reportedFailureSummary?.message ?? 'Se imprime en el campo FALLA del formato.'} />} />
+              </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="workManagerUserId"
@@ -541,13 +433,13 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
 
           <Section eyebrow="Diagnóstico" title="Renglones de trabajo">
             <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
-              Selecciona una falla y captura en el mismo renglón el trabajo o refacción, su costo y las observaciones correspondientes.
+              Selecciona una falla y captura su costo. Describe el trabajo, la refacción y cualquier nota adicional en observaciones.
             </Alert>
 
             <Box
               sx={{
                 display: { xs: 'none', lg: 'grid' },
-                gridTemplateColumns: 'minmax(220px, 0.9fr) minmax(310px, 0.85fr) minmax(360px, 1.25fr)',
+                gridTemplateColumns: 'minmax(210px, 0.9fr) minmax(150px, 0.5fr) minmax(300px, 1.6fr)',
                 border: 1,
                 borderColor: 'divider',
                 borderBottom: 0,
@@ -556,7 +448,7 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
             >
               {[
                 'Falla reportada',
-                'Trabajo / refacción autorizada y costo',
+                'Costo',
                 'Observaciones del funcionamiento o fallas',
               ].map((label, index) => (
                 <Typography
@@ -585,7 +477,7 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
                     variant="outlined"
                     sx={{
                       display: { xs: 'block', lg: 'grid' },
-                      gridTemplateColumns: 'minmax(220px, 0.9fr) minmax(310px, 0.85fr) minmax(360px, 1.25fr)',
+                      gridTemplateColumns: 'minmax(210px, 0.9fr) minmax(150px, 0.5fr) minmax(300px, 1.6fr)',
                       borderColor: isSelected ? 'primary.light' : 'divider',
                       borderRadius: { xs: 1, lg: 0 },
                       bgcolor: isSelected ? 'background.paper' : 'grey.50',
@@ -600,7 +492,7 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
                         render={({ field }) => (
                           <FormControlLabel
                             sx={{ m: 0 }}
-                            control={<Checkbox checked={field.value} onChange={(_, checked) => field.onChange(checked)} />}
+                            control={<Checkbox checked={field.value} onChange={(_, checked) => { field.onChange(checked); setValue('preserveLegacySubtotal', false, { shouldDirty: true }); }} />}
                             label={<Typography variant="body2" fontWeight={isSelected ? 750 : 500}>{type.label}</Typography>}
                           />
                         )}
@@ -630,28 +522,13 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
                       <Collapse in={isSelected} unmountOnExit>
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} alignItems="flex-start">
                           <Controller
-                            name={`reportedFailures.${index}.conceptName`}
-                            control={control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                size="small"
-                                fullWidth
-                                label="Concepto o nota (opcional)"
-                                placeholder="Ej. Tapón nuevo del cliente"
-                                error={Boolean(errors.reportedFailures?.[index]?.conceptName)}
-                                helperText={errors.reportedFailures?.[index]?.conceptName?.message}
-                              />
-                            )}
-                          />
-                          <Controller
                             name={`reportedFailures.${index}.amount`}
                             control={control}
                             render={({ field }) => (
                               <TextField
                                 {...field}
                                 value={field.value ?? ''}
-                                onChange={(event) => field.onChange(event.target.value === '' ? null : Number(event.target.value))}
+                                onChange={(event) => { field.onChange(event.target.value === '' ? null : Number(event.target.value)); setValue('preserveLegacySubtotal', false, { shouldDirty: true }); }}
                                 size="small"
                                 type="number"
                                 label="Costo (opcional)"
@@ -696,15 +573,15 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
             </Stack>
           </Section>
 
-          <Section eyebrow="Revisión técnica" title="Información importante">
+          <Section eyebrow="Condiciones del vehículo" title="Información importante">
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 5 }}>
                 <Stack spacing={2.5}>
                   <Paper variant="outlined" sx={{ p: 2, borderColor: 'error.light', bgcolor: 'rgba(217, 35, 45, 0.035)' }}>
                     <Typography variant="subtitle2" color="error.main" fontWeight={800} sx={{ mb: 0.5 }}>Condiciones detectadas (opcional)</Typography>
-                    <Controller name="compressionLeakDetected" control={control} render={({ field }) => <FormControlLabel sx={{ alignItems: 'flex-start', m: 0 }} control={<Checkbox checked={field.value} onChange={(_, checked) => field.onChange(checked)} color="error" sx={{ mt: -0.5 }} />} label="Fuga de compresión detectada; el vehículo no debe circular en estas condiciones." />} />
+                    <Controller name="compressionLeakDetected" control={control} render={({ field }) => <FormControlLabel sx={{ alignItems: 'flex-start', m: 0 }} control={<Checkbox checked={field.value} onChange={(_, checked) => field.onChange(checked)} color="error" sx={{ mt: -0.5 }} />} label={COMPRESSION_WARNING} />} />
                     <Divider sx={{ my: 1 }} />
-                    <Controller name="coolingSystemAirPressureDetected" control={control} render={({ field }) => <FormControlLabel sx={{ alignItems: 'flex-start', m: 0 }} control={<Checkbox checked={field.value} onChange={(_, checked) => field.onChange(checked)} color="error" sx={{ mt: -0.5 }} />} label="Se detectó aire en el sistema de enfriamiento, generando presión por el momento controlada." />} />
+                    <Controller name="coolingSystemAirPressureDetected" control={control} render={({ field }) => <FormControlLabel sx={{ alignItems: 'flex-start', m: 0 }} control={<Checkbox checked={field.value} onChange={(_, checked) => field.onChange(checked)} color="error" sx={{ mt: -0.5 }} />} label={combinedAirPressureWarning(informationalNote)} />} />
                   </Paper>
                   <Box sx={{ px: 1 }}>
                     <Typography variant="subtitle2" fontWeight={750}>Radiador tapado (opcional)</Typography>
@@ -725,11 +602,6 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
                 <Controller name="importantInformation" control={control} render={({ field }) => <TextField {...field} fullWidth multiline minRows={10} label="Información importante (opcional)" />} />
               </Grid>
               <Grid size={12}>
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
-                  <Controller name="informationalNote" control={control} render={({ field }) => <TextField {...field} fullWidth multiline minRows={2} label="Nota informativa del formato (opcional)" helperText="Se imprime como advertencia debajo de las condiciones técnicas." />} />
-                </Paper>
-              </Grid>
-              <Grid size={12}>
                 <Paper variant="outlined" sx={{ p: 2, borderStyle: 'dashed', bgcolor: 'background.default' }}>
                   <Typography variant="overline" color="text.secondary" fontWeight={750}>Uso interno · no se imprime</Typography>
                   <Controller name="internalNote" control={control} render={({ field }) => <TextField {...field} fullWidth multiline minRows={2} label="Nota privada del taller (opcional)" helperText="Solo la verá el personal; nunca se mostrará al cliente ni en el PDF." sx={{ mt: 1 }} />} />
@@ -745,7 +617,7 @@ export const ServiceOrderForm = ({ order, failureTypes, initialClientId, returnT
                   value={new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(displayedSubtotal)}
                   fullWidth
                   label="Costo del trabajo"
-                  helperText={hasLineAmounts ? 'Suma automática de los costos capturados.' : 'Conserva el subtotal anterior hasta capturar costos por renglón.'}
+                  helperText={preserveLegacySubtotal ? 'Subtotal histórico conservado; al cambiar costos o selección se recalcula por renglón.' : 'Suma automática de los costos capturados.'}
                   slotProps={{ input: { readOnly: true } }}
                 />
               </Grid>

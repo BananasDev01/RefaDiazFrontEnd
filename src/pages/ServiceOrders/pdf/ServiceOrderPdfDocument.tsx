@@ -22,6 +22,7 @@ import {
   siRenault,
   siVolkswagen,
 } from 'simple-icons';
+import { combinedAirPressureWarning, COMPRESSION_WARNING } from '../serviceOrderText';
 import type { ServiceOrderPdfData, ServiceOrderPdfFailure } from './serviceOrderPdfData';
 
 Font.registerHyphenationCallback((word) => [word]);
@@ -42,7 +43,7 @@ const styles = StyleSheet.create({
     fontSize: 7,
   },
   frame: {
-    height: '100%',
+    minHeight: 735,
     borderWidth: 1.25,
     borderColor: LINE,
     borderRadius: 10,
@@ -84,34 +85,31 @@ const styles = StyleSheet.create({
   fieldRow: { flexDirection: 'row', minHeight: 18, alignItems: 'flex-end' },
   inlineField: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 3, paddingVertical: 3 },
   inlineLabel: { fontFamily: 'Helvetica-Bold', fontSize: 5.7, marginRight: 4, paddingBottom: 1.5 },
-  inlineValue: { flexGrow: 1, borderBottomWidth: 0.6, borderBottomColor: LINE, minHeight: 11, fontSize: 7.3, paddingHorizontal: 2, paddingBottom: 1 },
-  reception: { height: 59, borderBottomWidth: 0.8, borderBottomColor: LINE, paddingVertical: 2 },
-  diagnostic: { height: 265, borderBottomWidth: 0.8, borderBottomColor: LINE },
+  inlineValue: { flexGrow: 1, flexShrink: 1, minWidth: 0, borderBottomWidth: 0.6, borderBottomColor: LINE, minHeight: 11, fontSize: 7.3, paddingHorizontal: 2, paddingBottom: 1 },
+  reception: { minHeight: 59, borderBottomWidth: 0.8, borderBottomColor: LINE, paddingVertical: 2 },
+  diagnostic: { minHeight: 330, borderBottomWidth: 0.8, borderBottomColor: LINE },
   diagnosticHeaderRow: { height: 26, flexDirection: 'row' },
   columnHeader: { height: 26, paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center', backgroundColor: SOFT, borderBottomWidth: 0.8, borderBottomColor: LINE, borderRightWidth: 0.8, borderRightColor: LINE },
   columnHeaderLast: { height: 26, paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center', backgroundColor: SOFT, borderBottomWidth: 0.8, borderBottomColor: LINE },
   columnHeaderText: { fontFamily: 'Helvetica-Bold', fontSize: 6.2, textAlign: 'center', lineHeight: 1.15 },
-  diagnosticRows: { flexGrow: 1, overflow: 'hidden' },
-  diagnosticRow: { flexDirection: 'row', minHeight: 14 },
+  diagnosticRows: { flexGrow: 1 },
+  diagnosticRow: { flexDirection: 'row', minHeight: 19 },
   failureCell: { width: '31%', flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 5, paddingVertical: 3, borderRightWidth: 0.8, borderRightColor: LINE, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
-  conceptCell: { width: '29%', flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 5, paddingVertical: 3, borderRightWidth: 0.8, borderRightColor: LINE, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
+  amountCell: { width: '29%', justifyContent: 'flex-end', flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 5, paddingVertical: 3, borderRightWidth: 0.8, borderRightColor: LINE, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
   observationCell: { width: '40%', paddingHorizontal: 5, paddingVertical: 3, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
   checkbox: { width: 7, height: 7, borderWidth: 0.7, borderColor: LINE, marginRight: 4, marginTop: 0.3, alignItems: 'center', justifyContent: 'center' },
   checkboxSelected: { borderColor: RED, backgroundColor: RED },
   checkboxMark: { fontFamily: 'Helvetica-Bold', fontSize: 5.5, color: PAPER },
-  failureText: { flexGrow: 1, fontSize: 6.25, lineHeight: 1.18 },
-  conceptText: { flexGrow: 1, fontSize: 6.25, lineHeight: 1.18, paddingRight: 3 },
-  conceptAmount: { width: 45, fontFamily: 'Helvetica-Bold', fontSize: 6.25, textAlign: 'right' },
+  failureText: { flexGrow: 1, flexShrink: 1, minWidth: 0, fontSize: 6.25, lineHeight: 1.18 },
+  lineAmount: { width: '100%', fontFamily: 'Helvetica-Bold', fontSize: 6.25, textAlign: 'right' },
   observationText: { fontSize: 6.25, lineHeight: 1.18 },
   bodyText: { fontSize: 7.1, lineHeight: 1.35 },
   technicalWarnings: { marginTop: 'auto', minHeight: 43, flexDirection: 'row', borderTopWidth: 0.7, borderTopColor: RED },
-  warningCell: { width: '31%', paddingHorizontal: 5, paddingVertical: 4, borderRightWidth: 0.8, borderRightColor: LINE },
-  warningBlankMiddle: { width: '29%', borderRightWidth: 0.8, borderRightColor: LINE },
-  warningBlankLast: { width: '40%' },
+  warningCell: { width: '100%', paddingHorizontal: 5, paddingVertical: 4, borderRightWidth: 0.8, borderRightColor: LINE },
   warningRow: { flexDirection: 'row', marginBottom: 3 },
-  warningText: { flexGrow: 1, color: RED, fontFamily: 'Helvetica-Bold', fontSize: 5.6, lineHeight: 1.15 },
-  infoSection: { height: 126, borderBottomWidth: 0.8, borderBottomColor: LINE },
-  infoBody: { flexDirection: 'row', height: 88 },
+  warningText: { width: '95%', color: RED, fontFamily: 'Helvetica-Bold', fontSize: 6.2, lineHeight: 1.2 },
+  infoSection: { minHeight: 126, borderBottomWidth: 0.8, borderBottomColor: LINE },
+  infoBody: { flexDirection: 'row', minHeight: 88 },
   infoLeft: { width: '42%', borderRightWidth: 0.8, borderRightColor: LINE, padding: 5 },
   infoRight: { width: '58%', padding: 5 },
   redHeading: { fontFamily: 'Helvetica-Bold', fontSize: 7, color: RED, letterSpacing: 0.55, marginBottom: 4 },
@@ -122,13 +120,12 @@ const styles = StyleSheet.create({
   scaleCellSelected: { backgroundColor: RED, borderColor: RED },
   scaleText: { fontSize: 5.5 },
   scaleTextSelected: { color: PAPER, fontFamily: 'Helvetica-Bold' },
-  noteText: { fontSize: 6.4, lineHeight: 1.25 },
   amountRow: { height: 38, flexDirection: 'row', borderTopWidth: 0.8, borderTopColor: LINE },
   amountBox: { flexGrow: 1, padding: 5, borderRightWidth: 0.8, borderRightColor: LINE, justifyContent: 'center' },
   amountBoxLast: { flexGrow: 1, padding: 5, justifyContent: 'center', backgroundColor: SOFT },
   amountLabel: { fontFamily: 'Helvetica-Bold', fontSize: 5.8, color: MUTED },
   amountValue: { fontFamily: 'Helvetica-Bold', fontSize: 9, marginTop: 2 },
-  signatureArea: { height: 79, paddingTop: 6 },
+  signatureArea: { minHeight: 79, paddingTop: 6 },
   signatureRow: { height: 42, flexDirection: 'row', alignItems: 'flex-end' },
   signature: { width: '36%', paddingHorizontal: 12, alignItems: 'center' },
   signatureValue: { height: 20, justifyContent: 'flex-end', textAlign: 'center', fontSize: 6.5 },
@@ -137,15 +134,14 @@ const styles = StyleSheet.create({
   warrantyTitle: { fontFamily: 'Helvetica-Bold', color: RED, fontSize: 6, textAlign: 'center' },
   warrantyValue: { fontFamily: 'Helvetica-Bold', fontSize: 10, marginTop: 3 },
   legal: { fontFamily: 'Helvetica-Bold', fontSize: 4.8, lineHeight: 1.18, textAlign: 'center', paddingHorizontal: 7, marginTop: 4 },
-  cutLine: { height: 14, borderTopWidth: 0.8, borderTopColor: MUTED, borderStyle: 'dashed', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  cutLabel: { backgroundColor: PAPER, paddingHorizontal: 5, color: MUTED, fontSize: 5, letterSpacing: 0.5 },
-  receipt: { height: 78, paddingHorizontal: 4 },
+  receipt: { minHeight: 78, paddingHorizontal: 4 },
   receiptHeader: { height: 23, flexDirection: 'row', alignItems: 'center' },
   receiptBrand: { width: '25%', fontFamily: 'Helvetica-Bold', fontSize: 8.5 },
   receiptTitle: { width: '50%', fontFamily: 'Helvetica-Bold', fontSize: 7.5, textAlign: 'center', letterSpacing: 0.45 },
   receiptFolio: { width: '25%', fontFamily: 'Helvetica-Bold', fontSize: 9, color: RED, textAlign: 'right' },
   receiptFields: { flexGrow: 1, paddingTop: 2 },
   footer: { marginTop: 'auto', borderTopWidth: 0.7, borderTopColor: LINE, paddingTop: 3, textAlign: 'center', fontFamily: 'Helvetica-Bold', fontSize: 5.3 },
+  pageNumber: { position: 'absolute', bottom: 6, left: 18, right: 18, textAlign: 'right', fontSize: 5.5, color: MUTED },
 });
 
 const money = (value: number) => new Intl.NumberFormat('es-MX', {
@@ -168,19 +164,16 @@ const Check = ({ checked }: { checked: boolean }) => (
 );
 
 const FailureRow = ({ failure }: { failure: ServiceOrderPdfFailure }) => (
-  <View style={styles.diagnosticRow}>
+  <View style={styles.diagnosticRow} wrap={false}>
     <View style={styles.failureCell}>
       <Check checked={failure.selected} />
       <Text style={styles.failureText}>
         {failure.label.toUpperCase()}{failure.detail ? `: ${failure.detail}` : ''}
       </Text>
     </View>
-    <View style={styles.conceptCell}>
-      {failure.selected && (
-        <>
-          <Text style={styles.conceptText}>{failure.conceptName || ' '}</Text>
-          {failure.amount !== null && <Text style={styles.conceptAmount}>{money(failure.amount)}</Text>}
-        </>
+    <View style={styles.amountCell}>
+      {failure.selected && failure.amount !== null && (
+        <Text style={styles.lineAmount}>{money(failure.amount)}</Text>
       )}
     </View>
     <View style={styles.observationCell}>
@@ -234,12 +227,15 @@ const BrandLogoRow = () => (
   </View>
 );
 
+export type ServiceOrderPdfKind = 'order' | 'receipt';
+
 export interface ServiceOrderPdfDocumentProps {
   data: ServiceOrderPdfData;
   logoSource: string;
+  kind?: ServiceOrderPdfKind;
 }
 
-export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDocumentProps) => {
+export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: ServiceOrderPdfDocumentProps) => {
   const warrantyLabel = data.warrantyMonths === null
     ? 'SIN ESPECIFICAR'
     : data.warrantyMonths === 0
@@ -249,14 +245,15 @@ export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDoc
 
   return (
     <Document
-      title={`Orden de servicio ${data.folio}`}
+      title={`${kind === 'receipt' ? 'Comprobante' : 'Orden de servicio'} ${data.folio}`}
       author="Radiadores Diaz"
       subject="Cotizacion de trabajo o refacciones"
       creator="RefaDiaz System"
     >
-      <Page size="LETTER" style={styles.page} wrap={false}>
-        <View style={styles.frame}>
-          <View style={styles.header}>
+      <Page size={kind === 'receipt' ? [612, 180] : 'LETTER'} style={styles.page}>
+        <View style={[styles.frame, kind === 'receipt' ? { minHeight: 144 } : {}]}>
+          {kind === 'order' && <>
+          <View style={styles.header} wrap={false}>
             <View style={styles.logoColumn}>
               <Image src={logoSource} style={styles.logo} />
               <View style={styles.contactBox}>
@@ -282,7 +279,7 @@ export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDoc
             <Text style={styles.titleText}>COTIZACIÓN DE TRABAJO O REFACCIONES</Text>
           </View>
 
-          <View style={styles.reception}>
+          <View style={styles.reception} wrap={false}>
             <View style={styles.fieldRow}>
               <InlineField label="CLIENTE" value={data.clientName} width="70%" />
               <InlineField label="TEL." value={data.phoneNumber} width="30%" />
@@ -304,7 +301,7 @@ export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDoc
                 <Text style={styles.columnHeaderText}>FALLAS REPORTADAS</Text>
               </View>
               <View style={[styles.columnHeader, { width: '29%' }]}>
-                <Text style={styles.columnHeaderText}>TRABAJO / REFACCIÓN AUTORIZADA{`\n`}Y COSTO</Text>
+                <Text style={styles.columnHeaderText}>COSTO</Text>
               </View>
               <View style={[styles.columnHeaderLast, { width: '40%' }]}>
                 <Text style={styles.columnHeaderText}>OBSERVACIONES DEL FUNCIONAMIENTO O{`\n`}FALLAS DEL AUTOMÓVIL</Text>
@@ -312,13 +309,11 @@ export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDoc
             </View>
             <View style={styles.diagnosticRows}>
               {data.failures.map((failure, index) => <FailureRow key={`${failure.label}-${index}`} failure={failure} />)}
-              <View style={styles.technicalWarnings}>
+              <View style={styles.technicalWarnings} wrap={false}>
                 <View style={styles.warningCell}>
-                  <Warning checked={data.compressionLeakDetected}>FUGA DE COMPRESION DETECTADA. EL VEHICULO NO DEBE CIRCULAR EN ESTAS CONDICIONES.</Warning>
-                  <Warning checked={data.coolingSystemAirPressureDetected}>SE ENCUENTRA AIRE EN EL SISTEMA DE ENFRIAMIENTO GENERANDO PRESION CONTROLADA.</Warning>
+                  <Warning checked={data.compressionLeakDetected}>{COMPRESSION_WARNING}</Warning>
+                  <Warning checked={data.coolingSystemAirPressureDetected}>{combinedAirPressureWarning(data.informationalNote)}</Warning>
                 </View>
-                <View style={styles.warningBlankMiddle} />
-                <View style={styles.warningBlankLast} />
               </View>
             </View>
           </View>
@@ -326,8 +321,6 @@ export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDoc
           <View style={styles.infoSection}>
             <View style={styles.infoBody}>
               <View style={styles.infoLeft}>
-                <Text style={styles.redHeading}>REVISIÓN TÉCNICA</Text>
-                <Text style={styles.noteText}>{data.informationalNote || 'Sin nota informativa.'}</Text>
                 <View style={styles.obstruction}>
                   <Text style={styles.obstructionLabel}>RADIADOR TAPADO {data.radiatorSerialNumber ? `· SERIE ${data.radiatorSerialNumber}` : ''}</Text>
                   <View style={styles.obstructionScale}>
@@ -347,7 +340,7 @@ export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDoc
                 <Text style={styles.bodyText}>{data.importantInformation || ' '}</Text>
               </View>
             </View>
-            <View style={styles.amountRow}>
+            <View style={styles.amountRow} wrap={false}>
               <View style={styles.amountBox}>
                 <Text style={styles.amountLabel}>COSTO DEL TRABAJO</Text>
                 <Text style={styles.amountValue}>{money(data.subtotal)}</Text>
@@ -363,7 +356,7 @@ export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDoc
             </View>
           </View>
 
-          <View style={styles.signatureArea}>
+          <View style={styles.signatureArea} wrap={false}>
             <View style={styles.signatureRow}>
               <View style={styles.signature}>
                 <Text style={styles.signatureValue}>{data.workManagerName || ' '}</Text>
@@ -381,7 +374,8 @@ export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDoc
             <Text style={styles.legal}>{data.warrantyLegalText.toUpperCase()}</Text>
           </View>
 
-          <View style={styles.cutLine}><Text style={styles.cutLabel}>COMPROBANTE PARA EL CLIENTE</Text></View>
+          </>}
+          {kind === 'receipt' && <>
 
           <View style={styles.receipt}>
             <View style={styles.receiptHeader}>
@@ -407,8 +401,10 @@ export const ServiceOrderPdfDocument = ({ data, logoSource }: ServiceOrderPdfDoc
             </View>
           </View>
 
+          </>}
           <Text style={styles.footer}>JOSE ALVARADO 2008 LOCS. 29 Y 30 COL. LA ESPAÑOLA · TELS. 81 8359-6091 / 81 8387-1040 · MONTERREY, N.L.</Text>
         </View>
+        {kind === 'order' && <Text fixed style={styles.pageNumber} render={({ pageNumber, totalPages }) => `Orden ${data.folio} · ${pageNumber} / ${totalPages}`} />}
       </Page>
     </Document>
   );

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "api:generate": "openapi-typescript ../../RefaDiazSystem/RefaDiazSupabase/supabase/docs/openapi.yaml --output src/api/refadiaz-api.d.ts",
+    "api:generate": "node scripts/generate-api-types.mjs",
     "pdf:sample": "vite-node scripts/render-service-order-pdf.tsx",
     "preview": "vite preview",
     "test": "vitest",

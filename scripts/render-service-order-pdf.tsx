@@ -100,3 +100,13 @@ await renderToFile(
 );
 
 process.stdout.write(`${outputPath}\n`);
+const receiptPath = path.join(outputDirectory, 'comprobante-servicio-ejemplo.pdf');
+await renderToFile(
+  <ServiceOrderPdfDocument
+    kind="receipt"
+    data={mapServiceOrderToPdfData(order, failureTypes)}
+    logoSource={path.join(root, 'src', 'assets', 'LOGO CON CONTORNO BLANCO RD.png')}
+  />,
+  receiptPath
+);
+process.stdout.write(`${receiptPath}\n`);

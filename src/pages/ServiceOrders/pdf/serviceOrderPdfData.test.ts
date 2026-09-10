@@ -57,8 +57,8 @@ describe('mapServiceOrderToPdfData', () => {
     expect(result.brand).toBe('Ford');
     expect(result.model).toBe('Lobo');
     expect(result.failures).toEqual([
-      { label: 'Servicio radiador', selected: false, detail: undefined, conceptName: '', amount: null, observation: '' },
-      { label: 'Otros', selected: true, detail: 'Revisar deposito', conceptName: 'Cambio de radiador', amount: 1000, observation: 'Depósito deteriorado' },
+      { label: 'Servicio radiador', selected: false, detail: undefined, amount: null, observation: '' },
+      { label: 'Otros', selected: true, detail: 'Revisar deposito', amount: 1000, observation: 'Cambio de radiador\nDepósito deteriorado' },
     ]);
     expect(result.reportedFailureSummary).toBe('Revisar deposito');
     expect(result.warrantyLegalText).toBe('Garantia de prueba');
