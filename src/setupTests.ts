@@ -1,6 +1,11 @@
 import '@testing-library/jest-dom/vitest';
 import { afterAll, afterEach, beforeAll } from 'vitest';
-import { resetMockProducts, resetMockProviders, resetMockVehicleNotes } from './mocks/handlers';
+import {
+  resetMockClients,
+  resetMockProducts,
+  resetMockProviders,
+  resetMockVehicleNotes,
+} from './mocks/handlers';
 import { server } from './mocks/server';
 
 beforeAll(() => {
@@ -12,6 +17,7 @@ afterEach(() => {
   resetMockProviders();
   resetMockProducts();
   resetMockVehicleNotes();
+  resetMockClients();
 });
 
 afterAll(() => {

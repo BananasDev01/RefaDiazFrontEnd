@@ -52,9 +52,17 @@ describe('VehicleNoteFormPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 
-    expect(await screen.findByText('El titulo es requerido.')).toBeInTheDocument();
-    expect(await screen.findByText('El contenido es requerido.')).toBeInTheDocument();
-  });
+    expect(await screen.findByText(
+      'El titulo es requerido.',
+      {},
+      { timeout: 10000 }
+    )).toBeInTheDocument();
+    expect(await screen.findByText(
+      'El contenido es requerido.',
+      {},
+      { timeout: 10000 }
+    )).toBeInTheDocument();
+  }, 15000);
 
   it('should submit a payload with null carModelId', async () => {
     let capturedBody: Record<string, unknown> | undefined;

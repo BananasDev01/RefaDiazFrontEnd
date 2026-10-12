@@ -4,6 +4,12 @@ import type { CarModel } from '../types/model.types';
 import type { Provider } from '../types/provider.types';
 import type { Product } from '../types/product.types';
 import type {
+  AddClientVehiclesRequest,
+  Client,
+  ClientCreateRequest,
+  ClientVehicleInput,
+} from '../types/client.types';
+import type {
   VehicleNote,
   VehicleNoteUpsertPayload,
 } from '../types/vehicleNote.types';
@@ -195,9 +201,51 @@ const originalMockVehicleNotes: VehicleNote[] = [
   },
 ];
 
+const originalMockClients: Client[] = [
+  {
+    id: 1,
+    externalId: '5b3c57af-8510-42f0-a1f8-8ce91a8ca101',
+    clientName: 'Pedro Antonio Félix',
+    phoneNumber: '8125049511',
+    phoneNormalized: '8125049511',
+    comments: 'Cliente frecuente',
+    active: true,
+    vehicles: [
+      {
+        clientVehicleId: 11,
+        id: 101,
+        externalId: '2e89c98b-c211-4358-8d6d-6a13a9f93101',
+        carModelId: 103,
+        modelYear: 2006,
+        version: 'SE',
+        color: 'Gris',
+        plate: 'RKU483B',
+        plateNormalized: 'RKU483B',
+        comments: null,
+        active: true,
+        carModel: {
+          id: 103,
+          name: 'Lobo',
+          brand: { id: 202, name: 'Ford' },
+        },
+      },
+    ],
+  },
+  {
+    id: 2,
+    externalId: '7efb3862-3922-4363-9869-04791432e102',
+    clientName: 'María del Rosario',
+    phoneNumber: '8185550102',
+    phoneNormalized: '8185550102',
+    active: true,
+    vehicles: [],
+  },
+];
+
 let mockProviders: Provider[] = JSON.parse(JSON.stringify(originalMockProviders));
 let mockProducts: Product[] = JSON.parse(JSON.stringify(originalMockProducts));
 let mockVehicleNotes: VehicleNote[] = JSON.parse(JSON.stringify(originalMockVehicleNotes));
+let mockClients: Client[] = JSON.parse(JSON.stringify(originalMockClients));
 
 export const resetMockProviders = () => {
   mockProviders = JSON.parse(JSON.stringify(originalMockProviders));
@@ -209,6 +257,36 @@ export const resetMockProducts = () => {
 
 export const resetMockVehicleNotes = () => {
   mockVehicleNotes = JSON.parse(JSON.stringify(originalMockVehicleNotes));
+};
+
+export const resetMockClients = () => {
+  mockClients = JSON.parse(JSON.stringify(originalMockClients));
+};
+
+const vehicleFromInput = (input: ClientVehicleInput, clientVehicleId: number) => {
+  const carModel = getCarModelById(input.carModelId);
+  return {
+    clientVehicleId,
+    id: clientVehicleId + 1000,
+    externalId: input.externalId,
+    carModelId: input.carModelId ?? null,
+    modelYear: input.modelYear ?? null,
+    version: input.version ?? null,
+    color: input.color ?? null,
+    plate: input.plate ?? null,
+    plateNormalized: input.plate?.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() ?? null,
+    comments: input.comments ?? null,
+    active: true,
+    carModel: carModel
+      ? {
+          id: carModel.id,
+          name: carModel.name,
+          brand: carModel.brand
+            ? { id: carModel.brand.id, name: carModel.brand.name }
+            : undefined,
+        }
+      : null,
+  };
 };
 
 const getVehicleNoteById = (id: number) =>
@@ -242,6 +320,80 @@ const buildVehicleNoteFromPayload = (
 };
 
 export const handlers = [
+  http.get(`${apiBaseUrl}/clients`, ({ request }) => {
+    const url = new URL(request.url);
+    const query = url.searchParams.get('q')?.toLowerCase() ?? '';
+    const limit = Number(url.searchParams.get('limit') ?? 50);
+    const offset = Number(url.searchParams.get('offset') ?? 0);
+    const filteredClients = query
+      ? mockClients.filter((client) => {
+          const searchable = [
+            client.clientName,
+            client.phoneNumber,
+            ...client.vehicles.flatMap((vehicle) => [
+              vehicle.plate,
+              vehicle.modelYear,
+              vehicle.carModel?.name,
+              vehicle.carModel?.brand?.name,
+            ]),
+          ].filter(Boolean).join(' ').toLowerCase();
+          return searchable.includes(query);
+        })
+      : mockClients;
+
+    return HttpResponse.json({
+      data: filteredClients.slice(offset, offset + limit),
+      pagination: { limit, offset, total: filteredClients.length },
+    });
+  }),
+
+  http.get(`${apiBaseUrl}/clients/:clientId`, ({ params }) => {
+    const client = mockClients.find((item) => item.id === Number(params.clientId));
+    return client
+      ? HttpResponse.json(client)
+      : new HttpResponse(null, { status: 404 });
+  }),
+
+  http.post(`${apiBaseUrl}/clients`, async ({ request }) => {
+    const payload = await request.json() as ClientCreateRequest;
+    const existingClient = mockClients.find(
+      (client) => client.phoneNormalized === payload.phoneNumber.replace(/\D/g, '')
+    );
+
+    if (existingClient) {
+      const nextVehicleId = Math.max(0, ...mockClients.flatMap((client) => client.vehicles.map((vehicle) => vehicle.clientVehicleId))) + 1;
+      existingClient.vehicles.push(
+        ...(payload.vehicles ?? []).map((vehicle, index) => vehicleFromInput(vehicle, nextVehicleId + index))
+      );
+      return HttpResponse.json({ ...existingClient, reconciledByPhone: true });
+    }
+
+    const id = Math.max(...mockClients.map((client) => client.id)) + 1;
+    const nextClient: Client = {
+      id,
+      externalId: payload.externalId,
+      clientName: payload.clientName,
+      phoneNumber: payload.phoneNumber,
+      phoneNormalized: payload.phoneNumber.replace(/\D/g, ''),
+      comments: payload.comments ?? undefined,
+      active: true,
+      vehicles: (payload.vehicles ?? []).map((vehicle, index) => vehicleFromInput(vehicle, 100 + index)),
+    };
+    mockClients.push(nextClient);
+    return HttpResponse.json(nextClient, { status: 201 });
+  }),
+
+  http.post(`${apiBaseUrl}/clients/:clientId/vehicles`, async ({ params, request }) => {
+    const client = mockClients.find((item) => item.id === Number(params.clientId));
+    if (!client) return new HttpResponse(null, { status: 404 });
+
+    const payload = await request.json() as AddClientVehiclesRequest;
+    const inputs = 'vehicle' in payload ? [payload.vehicle] : payload.vehicles;
+    const nextVehicleId = Math.max(0, ...mockClients.flatMap((item) => item.vehicles.map((vehicle) => vehicle.clientVehicleId))) + 1;
+    client.vehicles.push(...inputs.map((vehicle, index) => vehicleFromInput(vehicle, nextVehicleId + index)));
+    return HttpResponse.json(client, { status: 201 });
+  }),
+
   http.get(`${apiBaseUrl}/providers`, () => {
     return HttpResponse.json({
       providers: mockProviders,

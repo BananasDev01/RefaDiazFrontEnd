@@ -19,6 +19,9 @@ interface BrandModelSelectorProps {
   disabled?: boolean;
   /** Habilita crear/eliminar modelos desde el propio Autocomplete. */
   manageModels?: boolean;
+  required?: boolean;
+  brandError?: string;
+  modelError?: string;
   brandGridSize: GridProps['size'];
   modelGridSize: GridProps['size'];
 }
@@ -39,6 +42,9 @@ export const BrandModelSelector = ({
   onModelChange,
   disabled = false,
   manageModels = false,
+  required = false,
+  brandError,
+  modelError,
   brandGridSize,
   modelGridSize,
 }: BrandModelSelectorProps) => {
@@ -115,7 +121,15 @@ export const BrandModelSelector = ({
               <ul style={{ padding: 0 }}>{params.children}</ul>
             </li>
           )}
-          renderInput={(params) => <TextField {...params} label="Marca" />}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              required={required}
+              label="Marca"
+              error={Boolean(brandError)}
+              helperText={brandError}
+            />
+          )}
         />
       </Grid>
       <Grid size={modelGridSize}>
@@ -145,7 +159,15 @@ export const BrandModelSelector = ({
               )}
             </li>
           ) : undefined}
-          renderInput={(params) => <TextField {...params} label="Modelo" />}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              required={required}
+              label="Modelo"
+              error={Boolean(modelError)}
+              helperText={modelError}
+            />
+          )}
         />
       </Grid>
       {manageModels && selectedBrand && (

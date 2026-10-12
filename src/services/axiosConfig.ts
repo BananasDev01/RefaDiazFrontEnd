@@ -11,6 +11,9 @@ const axiosInstance = axios.create({
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
+    ...(import.meta.env.VITE_SUPABASE_KEY
+      ? { apikey: import.meta.env.VITE_SUPABASE_KEY }
+      : {}),
   },
 });
 
