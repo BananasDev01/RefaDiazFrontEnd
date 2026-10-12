@@ -6,6 +6,11 @@ import type {
 
 const currentYear = new Date().getFullYear();
 
+export const PHONE_DIGITS = 10;
+/** Keeps only digits, capped at a 10-digit Mexican phone number. */
+export const phoneDigits = (value?: string | null) => (value ?? '').replace(/\D/g, '').slice(0, PHONE_DIGITS);
+const hasTenDigits = (value?: string | null) => (value ?? '').replace(/\D/g, '').length === PHONE_DIGITS;
+
 export const clientSchema: yup.ObjectSchema<ClientFormValues> = yup.object({
   clientName: yup
     .string()
@@ -16,15 +21,17 @@ export const clientSchema: yup.ObjectSchema<ClientFormValues> = yup.object({
     .string()
     .trim()
     .required('El celular es obligatorio.')
-    .test('phone-digits', 'Captura un teléfono de 10 a 15 dígitos.', (value) => {
-      const digits = value?.replace(/\D/g, '') ?? '';
-      return digits.length >= 10 && digits.length <= 15;
-    }),
+    .test('phone-digits', 'El celular debe tener 10 dígitos.', hasTenDigits),
   comments: yup
     .string()
     .trim()
     .max(500, 'Los comentarios no pueden exceder 500 caracteres.')
     .defined(),
+  secondaryPhoneNumber: yup
+    .string()
+    .trim()
+    .defined()
+    .test('secondary-phone', 'El teléfono secundario debe tener 10 dígitos.', (value) => !value || hasTenDigits(value)),
 });
 
 export const clientVehicleSchema: yup.ObjectSchema<ClientVehicleFormValues> = yup.object({

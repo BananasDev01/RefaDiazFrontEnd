@@ -1,6 +1,6 @@
 import type { ReportedFailureType, ServiceOrder } from '../../../types/serviceOrder.types';
 import { getSnapshotText } from '../../../types/serviceOrder.types';
-import { decodeServiceOrderLine } from '../serviceOrderLineCodec';
+import { decodeServiceOrderLine, readServiceOrderLine } from '../serviceOrderLineCodec';
 import { combinedAirPressureWarning, mergeObservations } from '../serviceOrderText';
 
 export const DEFAULT_WARRANTY_LEGAL_TEXT = 'Radiadores Díaz se obliga por esta garantía a reparar, reemplazar o cubrir únicamente el valor del producto en cuestión. En ningún caso cubrirá materiales, mano de obra o partes suministradas, ni daños incidentales o consecuenciales derivados de una garantía.';
@@ -122,10 +122,8 @@ export const mapServiceOrderToPdfData = (
   failureTypes: ReportedFailureType[]
 ): ServiceOrderPdfData => {
   const vehicle = order.vehicleSnapshot;
-  const selectedFailures = new Map(
-    order.reportedFailures.map((failure) => [failure.reportedFailureTypeId, failure])
-  );
-  const hasStructuredLines = order.reportedFailures.some((failure) => (
+  const nativeContract = order.lineTotalsMode != null;
+  const hasStructuredLines = nativeContract || order.reportedFailures.some((failure) => (
     decodeServiceOrderLine(failure.otherText).structured
   ));
   const legacyTargetId = hasStructuredLines
@@ -134,9 +132,10 @@ export const mapServiceOrderToPdfData = (
   const legacyAuthorizedWork = getAuthorizedWork(order);
   const failures = [...failureTypes]
     .sort((a, b) => a.displayOrder - b.displayOrder)
-    .map((failureType) => {
-      const selected = selectedFailures.get(failureType.id);
-      const line = decodeServiceOrderLine(selected?.otherText);
+    .flatMap((failureType) => {
+      const matches = order.reportedFailures.filter((failure) => failure.reportedFailureTypeId === failureType.id);
+      return (matches.length ? matches : [undefined]).map((selected) => {
+      const line = readServiceOrderLine(selected, nativeContract);
       const receivesLegacyFields = selected && failureType.id === legacyTargetId;
       return {
         label: failureType.label,
@@ -151,6 +150,7 @@ export const mapServiceOrderToPdfData = (
           receivesLegacyFields ? legacyAuthorizedWork : '',
           receivesLegacyFields ? order.vehicleOperationObservations : ''),
       };
+      });
     });
 
   const knownTypeIds = new Set(failureTypes.map((failureType) => failureType.id));
@@ -158,7 +158,7 @@ export const mapServiceOrderToPdfData = (
     .filter((failure) => !knownTypeIds.has(failure.reportedFailureTypeId))
     .sort((a, b) => a.displayOrderSnapshot - b.displayOrderSnapshot)
     .forEach((failure) => {
-      const line = decodeServiceOrderLine(failure.otherText);
+      const line = readServiceOrderLine(failure, nativeContract);
       const receivesLegacyFields = failure.reportedFailureTypeId === legacyTargetId;
       failures.push({
         label: failure.labelSnapshot,
@@ -178,11 +178,11 @@ export const mapServiceOrderToPdfData = (
 
   return {
     folio: order.folioNumber
-      ? `${order.folioSeries}-${String(order.folioNumber).padStart(4, '0')}`
+      ? String(order.folioNumber).padStart(4, '0')
       : order.provisionalReference,
     serviceDate: formatDate(order.serviceDate),
     clientName: getSnapshotText(order.clientSnapshot, 'clientName', 'client_name', 'name', 'nombre') ?? '',
-    phoneNumber: getSnapshotText(order.clientSnapshot, 'phoneNumber', 'phone_number', 'phone', 'telefono') ?? '',
+    phoneNumber: [getSnapshotText(order.clientSnapshot, 'phoneNumber', 'phone_number', 'phone', 'telefono'), getSnapshotText(order.clientSnapshot, 'secondaryPhoneNumber', 'secondary_phone_number')].filter(Boolean).join(' / '),
     reportedFailureSummary: order.reportedFailureSummary?.trim() || selectedFailureSummary,
     brand: getSnapshotText(vehicle, 'brand', 'brandName', 'brand_name', 'marca')
       ?? nestedSnapshotText(vehicle, 'carModel', 'brandName', 'brand_name')

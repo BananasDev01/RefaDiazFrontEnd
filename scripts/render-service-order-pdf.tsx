@@ -6,10 +6,16 @@ import { ServiceOrderPdfDocument } from '../src/pages/ServiceOrders/pdf/ServiceO
 import { mapServiceOrderToPdfData } from '../src/pages/ServiceOrders/pdf/serviceOrderPdfData';
 import type { ReportedFailureType, ServiceOrder } from '../src/types/serviceOrder.types';
 import { encodeServiceOrderLine } from '../src/pages/ServiceOrders/serviceOrderLineCodec';
+import { decodeServiceOrderLine } from '../src/pages/ServiceOrders/serviceOrderLineCodec';
+import { buildWriteFields, createFormValues } from '../src/pages/ServiceOrders/serviceOrderFormData';
+import assert from 'node:assert/strict';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const outputDirectory = path.join(root, 'output', 'pdf');
-const outputPath = path.join(outputDirectory, 'orden-servicio-ejemplo.pdf');
+const stressRows = process.argv.includes('--stress-rows');
+const twoOtherRows = process.argv.includes('--two-other-rows');
+const stressTest = process.argv.includes('--stress') || stressRows;
+const outputDirectory = stressTest ? path.join(root, 'tmp', 'pdfs', 'stress-feedback') : path.join(root, 'output', 'pdf');
+const outputPath = path.join(outputDirectory, twoOtherRows ? 'orden-servicio-ejemplo-dos-otros.pdf' : 'orden-servicio-ejemplo.pdf');
 
 const failureTypes: ReportedFailureType[] = [
   { id: 1, code: 'SERVICIO_RADIADOR', label: 'Servicio radiador', displayOrder: 1, allowsFreeText: false, active: true },
@@ -41,7 +47,7 @@ const order: ServiceOrder = {
   reportedFailureSummary: 'Cambio de tapon y revision del sistema de enfriamiento.',
   authorizedWorkDescription: 'Cambio de tapon y revision completa del sistema.\nRevisar mangueras y funcionamiento del abanico.',
   vehicleOperationObservations: 'Mantenimiento completo recomendado. Revisar si vuelve a presentar temperatura alta. El tapon anterior no sella correctamente.',
-  importantInformation: 'Clima no funciona.\nFoco de motor encendido.',
+  importantInformation: '• Clima no funciona.\n• __Foco de motor encendido.__\n• ==Unidad a prueba: revisar con mecánico si presenta calentamiento.==',
   informationalNote: 'Si aun con el mantenimiento vuelve a presentar calentamiento o gorgoteo en el recuperador, revisar con un mecanico fuga de compresion.',
   compressionLeakDetected: true,
   coolingSystemAirPressureDetected: false,
@@ -51,7 +57,7 @@ const order: ServiceOrder = {
   taxAmount: 608,
   total: 4408,
   warrantyMonths: 6,
-  clientSnapshot: { clientName: 'Pedro Antonio Felix', phoneNumber: '8125049511' },
+  clientSnapshot: { clientName: 'Pedro Antonio Felix', phoneNumber: '8125049511', secondaryPhoneNumber: '8112345678' },
   vehicleSnapshot: { brand: 'Nissan', model: 'Pathfinder', modelYear: 2006, color: 'Gris', plate: 'RKU483B', version: 'SE' },
   workManagerSnapshot: { fullName: 'Eduardo Garcia' },
   legalTextSnapshot: {
@@ -90,6 +96,59 @@ const order: ServiceOrder = {
   items: [],
 };
 
+if (stressTest) order.importantInformation = Array.from({ length: 32 }, (_, i) => `${i + 1}. ==Observación de prueba ${i + 1}==: revisar mangueras, temperatura y presión. __Confirmar con el cliente antes de reparar.__`).join('\n');
+if (stressRows) {
+  order.reportedFailures.push(...Array.from({ length: 24 }, (_, i) => ({
+    id: 100 + i,
+    reportedFailureTypeId: 13,
+    failureCodeSnapshot: 'OTROS',
+    labelSnapshot: 'Otros',
+    displayOrderSnapshot: 13,
+    otherText: encodeServiceOrderLine({ customFailure: '', conceptName: '', amount: 100,
+      observation: `Renglón adicional ${i + 1}: revisión de manguera y conexiones. Confirmar funcionamiento después del mantenimiento.` }),
+  })));
+  order.subtotal = 6200;
+  order.taxAmount = 992;
+  order.total = 7192;
+}
+if (twoOtherRows) {
+  assert(!stressTest, 'Run the two-row example separately from the stress test.');
+  order.reportedFailureSummary = 'El cliente reporta sarro en el depósito y aumento de temperatura después de circular; solicita revisar el enfriamiento.\nRevisar el sellado del tapón, las mangueras y el funcionamiento del abanico antes de realizar el mantenimiento.';
+  order.lineTotalsMode = 'LINES';
+  order.reportedFailures = order.reportedFailures.map(failure => {
+    const line = decodeServiceOrderLine(failure.otherText);
+    return { ...failure, otherText: null, amount: line.amount,
+      observation: [line.conceptName, line.observation].filter(Boolean).join('\n') };
+  });
+  const otherType = failureTypes.find(type => type.id === 13)!;
+  otherType.code = 'OTHER';
+  order.reportedFailures.push(...[
+    { amount: 1800, observation: 'EJEMPLO 1: Corregir fuga en el tubo y casquillo de la bomba de agua.' },
+    { amount: 680, observation: 'EJEMPLO 2: Cambiar la manguera del purgador y verificar que no existan fugas.' },
+  ].map((line, index) => ({
+    id: 100 + index,
+    reportedFailureTypeId: otherType.id,
+    failureCodeSnapshot: otherType.code,
+    labelSnapshot: otherType.label,
+    displayOrderSnapshot: otherType.displayOrder,
+    ...line,
+  })));
+  // Use the same subtotal transformation as the capture form, not a typed total.
+  const values = createFormValues(failureTypes, order);
+  const subtotal = buildWriteFields(values, failureTypes).subtotal!;
+  values.taxAmount = Math.round(subtotal * 16) / 100;
+  const payload = buildWriteFields(values, failureTypes);
+  order.subtotal = payload.subtotal;
+  order.taxAmount = payload.taxAmount;
+  order.total = (Math.round(subtotal * 100) + Math.round(payload.taxAmount * 100)) / 100;
+  assert.equal(order.subtotal, 6280);
+  assert.equal(order.taxAmount, 1004.8);
+  assert.equal(order.total, 7284.8);
+  const pdfData = mapServiceOrderToPdfData(order, failureTypes);
+  assert.equal(pdfData.failures.filter(row => row.label === 'Otros' && row.selected).length, 2);
+  assert.equal(pdfData.failures.reduce((sum, row) => sum + Math.round((row.amount ?? 0) * 100), 0), 628000);
+  process.stdout.write(`Verified: subtotal ${order.subtotal}; IVA ${order.taxAmount}; total ${order.total}\n`);
+}
 await mkdir(outputDirectory, { recursive: true });
 await renderToFile(
   <ServiceOrderPdfDocument
@@ -100,6 +159,7 @@ await renderToFile(
 );
 
 process.stdout.write(`${outputPath}\n`);
+if (!twoOtherRows) {
 const receiptPath = path.join(outputDirectory, 'comprobante-servicio-ejemplo.pdf');
 await renderToFile(
   <ServiceOrderPdfDocument
@@ -110,3 +170,4 @@ await renderToFile(
   receiptPath
 );
 process.stdout.write(`${receiptPath}\n`);
+}

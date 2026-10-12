@@ -5,10 +5,12 @@ import {
   createClient,
   getClient,
   searchClients,
+  updateClientContact,
 } from '../services/ClientService';
 import type {
   AddClientVehiclesRequest,
   ClientCreateRequest,
+  ClientContactUpdateRequest,
   ClientSearchParams,
 } from '../types/client.types';
 
@@ -80,7 +82,19 @@ export const useClientMutations = () => {
     },
   });
 
+  const contactMutation = useMutation({
+    mutationFn: ({ clientId, payload }: { clientId: number; payload: ClientContactUpdateRequest }) => updateClientContact(clientId, payload),
+    onSuccess: (client) => {
+      queryClient.setQueryData(clientQueryKeys.detail(client.id), client);
+      void queryClient.invalidateQueries({ queryKey: clientQueryKeys.lists() });
+      showSnackbar('Teléfono actualizado.', 'success');
+    },
+    onError: (error: Error) => showSnackbar(`No se pudo guardar el teléfono: ${error.message}`, 'error'),
+  });
+
   return {
+    updateClientContact: contactMutation.mutateAsync,
+    isUpdatingContact: contactMutation.isPending,
     createClient: createClientMutation.mutateAsync,
     isCreatingClient: createClientMutation.isPending,
     addClientVehicles: addVehiclesMutation.mutateAsync,

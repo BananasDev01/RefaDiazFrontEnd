@@ -32,7 +32,7 @@ export const useAuth = (): UseAuthReturn => {
       try {
         const user = await authSignIn(credentials);
         showSnackbar('Inicio de sesión exitoso.', 'success');
-        navigate('/home', { replace: true });
+        navigate('/service-orders', { replace: true });
         return user;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Error al iniciar sesión.';

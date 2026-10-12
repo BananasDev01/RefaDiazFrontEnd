@@ -24,6 +24,7 @@ import {
 } from 'simple-icons';
 import { combinedAirPressureWarning, COMPRESSION_WARNING } from '../serviceOrderText';
 import type { ServiceOrderPdfData, ServiceOrderPdfFailure } from './serviceOrderPdfData';
+import { parseImportantNote } from '../importantNoteFormat';
 
 Font.registerHyphenationCallback((word) => [word]);
 
@@ -58,17 +59,14 @@ const styles = StyleSheet.create({
     paddingBottom: 5,
   },
   logoColumn: { width: '34%', paddingRight: 8, alignItems: 'center', justifyContent: 'center' },
-  logo: { width: 112, height: 34, objectFit: 'contain' },
-  contactBox: { width: 160, backgroundColor: INK, marginTop: 1.5, paddingHorizontal: 4, paddingVertical: 2.5 },
-  contactPrimary: { color: PAPER, fontFamily: 'Helvetica-Bold', fontSize: 4.4, textAlign: 'center', lineHeight: 1.15 },
-  contactSecondary: { color: PAPER, fontSize: 4, textAlign: 'center', lineHeight: 1.15 },
+  logo: { width: 170, height: 58, objectFit: 'contain' },
   headerCenter: { width: '43%', alignItems: 'center', paddingHorizontal: 3 },
   slogan: { fontFamily: 'Helvetica-Bold', fontSize: 6.4, textAlign: 'center', lineHeight: 1.22 },
   specialists: { fontSize: 5.7, letterSpacing: 1.6, marginTop: 4 },
   brandLogos: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
-  brandLogo: { width: 19, height: 13 },
-  chryslerLogo: { width: 35, height: 20 },
-  mercedesLogo: { width: 17, height: 13 },
+  brandLogo: { width: 22, height: 20 },
+  chryslerLogo: { width: 39, height: 24 },
+  mercedesLogo: { width: 21, height: 20 },
   folioColumn: { width: '23%', alignItems: 'flex-end' },
   documentType: { fontSize: 5.5, letterSpacing: 0.9, color: MUTED },
   dateLabel: { fontSize: 5, color: MUTED, marginTop: 5 },
@@ -87,16 +85,16 @@ const styles = StyleSheet.create({
   inlineLabel: { fontFamily: 'Helvetica-Bold', fontSize: 5.7, marginRight: 4, paddingBottom: 1.5 },
   inlineValue: { flexGrow: 1, flexShrink: 1, minWidth: 0, borderBottomWidth: 0.6, borderBottomColor: LINE, minHeight: 11, fontSize: 7.3, paddingHorizontal: 2, paddingBottom: 1 },
   reception: { minHeight: 59, borderBottomWidth: 0.8, borderBottomColor: LINE, paddingVertical: 2 },
-  diagnostic: { minHeight: 330, borderBottomWidth: 0.8, borderBottomColor: LINE },
+  diagnostic: { borderBottomWidth: 0.8, borderBottomColor: LINE },
   diagnosticHeaderRow: { height: 26, flexDirection: 'row' },
   columnHeader: { height: 26, paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center', backgroundColor: SOFT, borderBottomWidth: 0.8, borderBottomColor: LINE, borderRightWidth: 0.8, borderRightColor: LINE },
   columnHeaderLast: { height: 26, paddingHorizontal: 4, justifyContent: 'center', alignItems: 'center', backgroundColor: SOFT, borderBottomWidth: 0.8, borderBottomColor: LINE },
   columnHeaderText: { fontFamily: 'Helvetica-Bold', fontSize: 6.2, textAlign: 'center', lineHeight: 1.15 },
-  diagnosticRows: { flexGrow: 1 },
+  diagnosticRows: {},
   diagnosticRow: { flexDirection: 'row', minHeight: 19 },
   failureCell: { width: '31%', flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 5, paddingVertical: 3, borderRightWidth: 0.8, borderRightColor: LINE, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
-  amountCell: { width: '29%', justifyContent: 'flex-end', flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 5, paddingVertical: 3, borderRightWidth: 0.8, borderRightColor: LINE, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
-  observationCell: { width: '40%', paddingHorizontal: 5, paddingVertical: 3, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
+  amountCell: { width: '14%', justifyContent: 'flex-end', flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 5, paddingVertical: 3, borderRightWidth: 0.8, borderRightColor: LINE, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
+  observationCell: { width: '55%', paddingHorizontal: 5, paddingVertical: 3, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
   checkbox: { width: 7, height: 7, borderWidth: 0.7, borderColor: LINE, marginRight: 4, marginTop: 0.3, alignItems: 'center', justifyContent: 'center' },
   checkboxSelected: { borderColor: RED, backgroundColor: RED },
   checkboxMark: { fontFamily: 'Helvetica-Bold', fontSize: 5.5, color: PAPER },
@@ -104,19 +102,19 @@ const styles = StyleSheet.create({
   lineAmount: { width: '100%', fontFamily: 'Helvetica-Bold', fontSize: 6.25, textAlign: 'right' },
   observationText: { fontSize: 6.25, lineHeight: 1.18 },
   bodyText: { fontSize: 7.1, lineHeight: 1.35 },
-  technicalWarnings: { marginTop: 'auto', minHeight: 43, flexDirection: 'row', borderTopWidth: 0.7, borderTopColor: RED },
+  technicalWarnings: { minHeight: 43, flexDirection: 'row', borderTopWidth: 0.7, borderTopColor: RED },
   warningCell: { width: '100%', paddingHorizontal: 5, paddingVertical: 4, borderRightWidth: 0.8, borderRightColor: LINE },
-  warningRow: { flexDirection: 'row', marginBottom: 3 },
-  warningText: { width: '95%', color: RED, fontFamily: 'Helvetica-Bold', fontSize: 6.2, lineHeight: 1.2 },
-  infoSection: { minHeight: 126, borderBottomWidth: 0.8, borderBottomColor: LINE },
-  infoBody: { flexDirection: 'row', minHeight: 88 },
-  infoLeft: { width: '42%', borderRightWidth: 0.8, borderRightColor: LINE, padding: 5 },
-  infoRight: { width: '58%', padding: 5 },
+  warningRow: { flexDirection: 'row', marginVertical: 4 },
+  warningText: { width: '95%', color: RED, fontFamily: 'Helvetica-Bold', fontWeight: 700, fontSize: 6.5, lineHeight: 1.25 },
+  infoSection: { borderBottomWidth: 0.8, borderBottomColor: LINE },
+  infoBody: { flexDirection: 'row', minHeight: 84 },
+  infoLeft: { width: '29%', borderRightWidth: 0.8, borderRightColor: LINE, padding: 5 },
+  infoRight: { width: '71%', padding: 7 },
   redHeading: { fontFamily: 'Helvetica-Bold', fontSize: 7, color: RED, letterSpacing: 0.55, marginBottom: 4 },
-  obstruction: { marginTop: 5, borderTopWidth: 0.5, borderTopColor: LINE, paddingTop: 4 },
+  obstruction: { marginTop: 23, paddingTop: 4 },
   obstructionLabel: { fontFamily: 'Helvetica-Bold', fontSize: 6 },
   obstructionScale: { flexDirection: 'row', marginTop: 4 },
-  scaleCell: { width: 14, height: 13, borderWidth: 0.5, borderColor: LINE, alignItems: 'center', justifyContent: 'center', marginRight: -0.5 },
+  scaleCell: { width: 12, height: 13, borderWidth: 0.5, borderColor: LINE, alignItems: 'center', justifyContent: 'center', marginRight: -0.5 },
   scaleCellSelected: { backgroundColor: RED, borderColor: RED },
   scaleText: { fontSize: 5.5 },
   scaleTextSelected: { color: PAPER, fontFamily: 'Helvetica-Bold' },
@@ -125,7 +123,7 @@ const styles = StyleSheet.create({
   amountBoxLast: { flexGrow: 1, padding: 5, justifyContent: 'center', backgroundColor: SOFT },
   amountLabel: { fontFamily: 'Helvetica-Bold', fontSize: 5.8, color: MUTED },
   amountValue: { fontFamily: 'Helvetica-Bold', fontSize: 9, marginTop: 2 },
-  signatureArea: { minHeight: 79, paddingTop: 6 },
+  signatureArea: { minHeight: 65, paddingTop: 6 },
   signatureRow: { height: 42, flexDirection: 'row', alignItems: 'flex-end' },
   signature: { width: '36%', paddingHorizontal: 12, alignItems: 'center' },
   signatureValue: { height: 20, justifyContent: 'flex-end', textAlign: 'center', fontSize: 6.5 },
@@ -150,10 +148,10 @@ const money = (value: number) => new Intl.NumberFormat('es-MX', {
   minimumFractionDigits: 2,
 }).format(value);
 
-const InlineField = ({ label, value, width }: { label: string; value: string; width: string }) => (
+const InlineField = ({ label, value, width, lines = 1 }: { label: string; value: string; width: string; lines?: number }) => (
   <View style={[styles.inlineField, { width }]}>
     <Text style={styles.inlineLabel}>{label}</Text>
-    <Text style={styles.inlineValue}>{value || ' '}</Text>
+    <Text style={[styles.inlineValue, { minHeight: lines * 11, lineHeight: 1.4 }]}>{value || ' '}</Text>
   </View>
 );
 
@@ -164,7 +162,7 @@ const Check = ({ checked }: { checked: boolean }) => (
 );
 
 const FailureRow = ({ failure }: { failure: ServiceOrderPdfFailure }) => (
-  <View style={styles.diagnosticRow} wrap={false}>
+  <View style={[styles.diagnosticRow, failure.selected ? {} : { minHeight: 15 }]} wrap={false}>
     <View style={styles.failureCell}>
       <Check checked={failure.selected} />
       <Text style={styles.failureText}>
@@ -250,17 +248,16 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
       subject="Cotizacion de trabajo o refacciones"
       creator="RefaDiaz System"
     >
-      <Page size={kind === 'receipt' ? [612, 180] : 'LETTER'} style={styles.page}>
-        <View style={[styles.frame, kind === 'receipt' ? { minHeight: 144 } : {}]}>
+      <Page size="LETTER" orientation="portrait" style={[styles.page, kind === 'order' ? { paddingTop: 36, paddingBottom: 30 } : {}]}>
+        {kind === 'order' && <View fixed style={{ position: 'absolute', top: 18, bottom: 30, left: 18, right: 18, borderWidth: 1.25, borderColor: LINE, borderRadius: 10 }} />}
+        {kind === 'order' && <Text fixed style={{ position: 'absolute', top: 24, left: 28, right: 28, fontSize: 6, color: MUTED }} render={({ pageNumber }) => pageNumber > 1 ? `ORDEN ${data.folio} - CONTINUACIÓN` : ''} />}
+        {/* Keep the decorative border outside flowing content: a split min-height
+            frame can otherwise generate an empty trailing page. */}
+        <View style={kind === 'receipt' ? [styles.frame, { minHeight: 120 }] : { paddingHorizontal: 10.25 }}>
           {kind === 'order' && <>
           <View style={styles.header} wrap={false}>
             <View style={styles.logoColumn}>
               <Image src={logoSource} style={styles.logo} />
-              <View style={styles.contactBox}>
-                <Text style={styles.contactPrimary}>JOSÉ ALVARADO 2008 · LOCS. 29 Y 30</Text>
-                <Text style={styles.contactSecondary}>TELS. 81 8359-6091 / 81 8387-1040</Text>
-                <Text style={styles.contactSecondary}>radiadoresdiaz.com.mx · info@radiadoresdiaz.com.mx</Text>
-              </View>
             </View>
             <View style={styles.headerCenter}>
               <Text style={styles.slogan}>PARA REPARACIONES CUALQUIERA ES BUENO{`\n`}PARA PROBLEMAS DE CALENTAMIENTO{`\n`}SOLO RADIADORES DÍAZ</Text>
@@ -281,11 +278,11 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
 
           <View style={styles.reception} wrap={false}>
             <View style={styles.fieldRow}>
-              <InlineField label="CLIENTE" value={data.clientName} width="70%" />
-              <InlineField label="TEL." value={data.phoneNumber} width="30%" />
+              <InlineField label="CLIENTE" value={data.clientName} width="60%" />
+              <InlineField label="TEL." value={data.phoneNumber} width="40%" />
             </View>
-            <View style={styles.fieldRow}>
-              <InlineField label="FALLA" value={data.reportedFailureSummary} width="100%" />
+            <View style={{ ...styles.fieldRow, minHeight: 30 }}>
+              <InlineField label="FALLA" value={data.reportedFailureSummary} width="100%" lines={2} />
             </View>
             <View style={styles.fieldRow}>
               <InlineField label="MARCA" value={data.brand} width="22%" />
@@ -300,10 +297,10 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
               <View style={[styles.columnHeader, { width: '31%' }]}>
                 <Text style={styles.columnHeaderText}>FALLAS REPORTADAS</Text>
               </View>
-              <View style={[styles.columnHeader, { width: '29%' }]}>
+              <View style={[styles.columnHeader, { width: '14%' }]}>
                 <Text style={styles.columnHeaderText}>COSTO</Text>
               </View>
-              <View style={[styles.columnHeaderLast, { width: '40%' }]}>
+              <View style={[styles.columnHeaderLast, { width: '55%' }]}>
                 <Text style={styles.columnHeaderText}>OBSERVACIONES DEL FUNCIONAMIENTO O{`\n`}FALLAS DEL AUTOMÓVIL</Text>
               </View>
             </View>
@@ -311,8 +308,8 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
               {data.failures.map((failure, index) => <FailureRow key={`${failure.label}-${index}`} failure={failure} />)}
               <View style={styles.technicalWarnings} wrap={false}>
                 <View style={styles.warningCell}>
-                  <Warning checked={data.compressionLeakDetected}>{COMPRESSION_WARNING}</Warning>
-                  <Warning checked={data.coolingSystemAirPressureDetected}>{combinedAirPressureWarning(data.informationalNote)}</Warning>
+                  <Warning checked={data.compressionLeakDetected}>{COMPRESSION_WARNING.toLocaleUpperCase('es-MX')}</Warning>
+                  <Warning checked={data.coolingSystemAirPressureDetected}>{combinedAirPressureWarning(data.informationalNote).toLocaleUpperCase('es-MX')}</Warning>
                 </View>
               </View>
             </View>
@@ -321,8 +318,9 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
           <View style={styles.infoSection}>
             <View style={styles.infoBody}>
               <View style={styles.infoLeft}>
+                <InlineField label="SERIE" value={data.radiatorSerialNumber} width="100%" />
                 <View style={styles.obstruction}>
-                  <Text style={styles.obstructionLabel}>RADIADOR TAPADO {data.radiatorSerialNumber ? `· SERIE ${data.radiatorSerialNumber}` : ''}</Text>
+                  <Text style={styles.obstructionLabel}>RADIADOR TAPADO</Text>
                   <View style={styles.obstructionScale}>
                     {Array.from({ length: 11 }, (_, level) => {
                       const selected = data.radiatorObstructionLevel === level;
@@ -336,10 +334,13 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
                 </View>
               </View>
               <View style={styles.infoRight}>
-                <Text style={styles.redHeading}>INFORMACIÓN IMPORTANTE</Text>
-                <Text style={styles.bodyText}>{data.importantInformation || ' '}</Text>
+                <Text style={styles.redHeading}>INFORMACIÓN IMPORTANTE / OBSERVACIONES</Text>
+                {parseImportantNote(data.importantInformation || ' ').map((line, index) => <Text key={index} style={styles.bodyText}>{line.length ? line.map((part, i) => <Text key={i} style={{ textDecoration: part.underline ? 'underline' : 'none', backgroundColor: part.highlight ? '#fff19b' : PAPER }}>{part.text}</Text>) : ' '}</Text>)}
               </View>
             </View>
+          </View>
+          {/* Keep the financial closing and the signatures on the same page. */}
+          <View wrap={false}>
             <View style={styles.amountRow} wrap={false}>
               <View style={styles.amountBox}>
                 <Text style={styles.amountLabel}>COSTO DEL TRABAJO</Text>
@@ -354,8 +355,6 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
                 <Text style={styles.amountValue}>{money(data.total)}</Text>
               </View>
             </View>
-          </View>
-
           <View style={styles.signatureArea} wrap={false}>
             <View style={styles.signatureRow}>
               <View style={styles.signature}>
@@ -372,6 +371,8 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
               </View>
             </View>
             <Text style={styles.legal}>{data.warrantyLegalText.toUpperCase()}</Text>
+            <Text style={[styles.footer, { marginTop: 4 }]}>JOSE ALVARADO 2008 LOCS. 29 Y 30 COL. LA ESPAÑOLA · TELS. 81 8359-6091 / 81 8387-1040 · MONTERREY, N.L.</Text>
+          </View>
           </View>
 
           </>}
@@ -389,7 +390,7 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
                 <InlineField label="TEL." value={data.phoneNumber} width="35%" />
               </View>
               <View style={styles.fieldRow}>
-                <InlineField label="VEHICULO" value={vehicleName} width="45%" />
+                <InlineField label="VEHÍCULO" value={vehicleName} width="45%" />
                 <InlineField label="COLOR" value={data.color} width="23%" />
                 <InlineField label="PLACAS" value={data.plate} width="32%" />
               </View>
@@ -402,8 +403,9 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
           </View>
 
           </>}
-          <Text style={styles.footer}>JOSE ALVARADO 2008 LOCS. 29 Y 30 COL. LA ESPAÑOLA · TELS. 81 8359-6091 / 81 8387-1040 · MONTERREY, N.L.</Text>
+          {kind === 'receipt' && <Text style={styles.footer}>JOSE ALVARADO 2008 LOCS. 29 Y 30 COL. LA ESPAÑOLA · TELS. 81 8359-6091 / 81 8387-1040 · MONTERREY, N.L.</Text>}
         </View>
+        {kind === 'receipt' && <View style={{ marginTop: 8, borderTopWidth: 0.5, borderTopColor: MUTED, borderTopStyle: 'dashed' }} />}
         {kind === 'order' && <Text fixed style={styles.pageNumber} render={({ pageNumber, totalPages }) => `Orden ${data.folio} · ${pageNumber} / ${totalPages}`} />}
       </Page>
     </Document>

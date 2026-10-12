@@ -1,3 +1,5 @@
+import type { ServiceOrder } from '../../types/serviceOrder.types';
+
 const STRUCTURED_LINE_PREFIX = 'RDROW1:';
 
 interface SerializedServiceOrderLine {
@@ -19,6 +21,17 @@ export interface DecodedServiceOrderLine extends ServiceOrderLineDetails {
 }
 
 const cleanText = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+
+export const readServiceOrderLine = (
+  line: ServiceOrder['reportedFailures'][number] | undefined,
+  nativeContract: boolean,
+): DecodedServiceOrderLine => nativeContract ? {
+  structured: true,
+  customFailure: line?.otherText?.trim() ?? '',
+  conceptName: '',
+  amount: line?.amount ?? null,
+  observation: line?.observation?.trim() ?? '',
+} : decodeServiceOrderLine(line?.otherText);
 
 export const decodeServiceOrderLine = (value?: string | null): DecodedServiceOrderLine => {
   const text = value?.trim() ?? '';

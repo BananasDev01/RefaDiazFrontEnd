@@ -20,9 +20,10 @@ import VehicleNotesCatalog from './pages/VehicleNotes/VehicleNotesCatalog'
 import VehicleNoteFormPage from './pages/VehicleNotes/VehicleNoteFormPage'
 import VehicleNoteDetailPage from './pages/VehicleNotes/VehicleNoteDetailPage'
 import ClientsPage from './pages/Clients/ClientsPage'
-import ClientDetailPage from './pages/Clients/ClientDetailPage'
-import ServiceOrdersPage from './pages/ServiceOrders/ServiceOrdersPage'
-import ServiceOrderFormPage from './pages/ServiceOrders/ServiceOrderFormPage'
+import DocumentUploadPage from './pages/ServiceOrders/DocumentUploadPage'
+import { ServiceOrdersPage } from './pages/ServiceOrders/ServiceOrdersPage'
+import { NewServiceOrderPage, ServiceOrderEditorPage } from './pages/ServiceOrders/ServiceOrderPages'
+import { ClientDetailPage } from './pages/Clients/ClientDetailPage'
 
 // Crear instancia de QueryClient
 const queryClient = new QueryClient({
@@ -45,6 +46,7 @@ function App() {
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/document-upload" element={<DocumentUploadPage />} />
                 <Route
                   path="/"
                   element={
@@ -53,7 +55,7 @@ function App() {
                     </AuthGuard>
                   }
                 >
-                  <Route index element={<Navigate to="/products" replace />} />
+                  <Route index element={<Navigate to="/service-orders" replace />} />
                   <Route path="products">
                     <Route index element={<ProductTypeSelection />} />
                     <Route path=":productType/new" element={<ProductFormPage />} />
@@ -67,8 +69,8 @@ function App() {
                   </Route>
                   <Route path="service-orders">
                     <Route index element={<ServiceOrdersPage />} />
-                    <Route path="new" element={<ServiceOrderFormPage />} />
-                    <Route path=":serviceExternalId" element={<ServiceOrderFormPage />} />
+                    <Route path="new" element={<NewServiceOrderPage />} />
+                    <Route path=":serviceExternalId" element={<ServiceOrderEditorPage />} />
                   </Route>
                   <Route path="admin">
                     <Route index element={<Admin />} />

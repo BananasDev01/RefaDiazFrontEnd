@@ -48,10 +48,18 @@ const order: ServiceOrder = {
 };
 
 describe('mapServiceOrderToPdfData', () => {
+  it('imprime importes y observaciones nativos sin usar el contenedor temporal otherText', () => {
+    const result = mapServiceOrderToPdfData({
+      ...order, lineTotalsMode: 'LINES',
+      reportedFailures: [{ ...order.reportedFailures[0], otherText: 'Tubo de bomba', amount: 1800, observation: 'Corregir fuga' }],
+    }, failureTypes);
+    expect(result.failures[1]).toMatchObject({ detail: 'Tubo de bomba', amount: 1800, observation: 'Corregir fuga' });
+  });
+
   it('construye el formato desde snapshots sin incluir datos internos', () => {
     const result = mapServiceOrderToPdfData(order, failureTypes);
 
-    expect(result.folio).toBe('SER-0042');
+    expect(result.folio).toBe('0042');
     expect(result.serviceDate).toBe('21 de agosto de 2026');
     expect(result.clientName).toBe('Cliente ejemplo');
     expect(result.brand).toBe('Ford');

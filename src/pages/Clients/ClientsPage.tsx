@@ -1,41 +1,34 @@
 import AddIcon from '@mui/icons-material/Add';
-import DirectionsCarOutlinedIcon from '@mui/icons-material/DirectionsCarOutlined';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
   Box,
   Button,
   CircularProgress,
+  IconButton,
   InputAdornment,
-  Paper,
+  MenuItem,
+  Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import PageHeader from '../../components/common/PageHeader';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useClients } from '../../hooks/useClients';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
-import type { ClientVehicle } from '../../types/client.types';
+import { vehicleName } from '../ServiceOrders/serviceOrderUtils';
+import { cardSx, inputSx, tone } from '../ServiceOrders/tokens';
+import { Avatar, PageCanvas, PageContainer, PlateBadge } from '../ServiceOrders/ui';
 import ClientCreateDialog from './ClientCreateDialog';
 
 const DEFAULT_PAGE_SIZE = 20;
-
-const getVehicleLabel = (vehicle: ClientVehicle) => {
-  const model = [vehicle.carModel?.brand?.name, vehicle.carModel?.name]
-    .filter(Boolean)
-    .join(' ');
-  const details = [vehicle.modelYear, vehicle.plate].filter(Boolean).join(' · ');
-  return [model || 'Vehículo sin modelo', details].filter(Boolean).join(' — ');
-};
+const PAGE_SIZES = [10, 20, 50];
+const VISIBLE_VEHICLES = 2;
+const columns = 'minmax(0, 1.3fr) 200px minmax(0, 1.5fr) 24px';
 
 const ClientsPage = () => {
   const navigate = useNavigate();
@@ -70,8 +63,9 @@ const ClientsPage = () => {
     }),
     [debouncedSearchText, page, rowsPerPage]
   );
-  const { data, isLoading, isFetching, isError, error } = useClients(filters);
+  const { data, isLoading, isFetching, isError, error, refetch } = useClients(filters);
   const clients = data?.data ?? [];
+  const total = data?.pagination.total ?? 0;
 
   const updatePagination = (nextPage: number, nextLimit = rowsPerPage) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -83,140 +77,125 @@ const ClientsPage = () => {
   };
 
   return (
-    <Box>
-      <PageHeader
-        title="Clientes"
-        actionButton={(
+    <PageCanvas>
+      <PageContainer sx={{ pt: 3.5, pb: 6, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ flex: 1, minWidth: 240 }}>
+            <Typography component="h1" sx={{ fontSize: 26, fontWeight: 700, color: tone.ink }}>Clientes</Typography>
+            <Typography sx={{ color: tone.faint, fontSize: 14 }}>Expediente de cada cliente, sus vehículos y su historial de órdenes.</Typography>
+          </Box>
           <Button
             variant="contained"
+            disableElevation
             startIcon={<AddIcon />}
             onClick={() => setIsCreateOpen(true)}
+            sx={{ height: 44, px: 2.5, borderRadius: 2.5, whiteSpace: 'nowrap' }}
           >
             Nuevo cliente
           </Button>
-        )}
-      />
+        </Box>
 
-      <Typography color="text.secondary" sx={{ mb: 3, maxWidth: 760 }}>
-        Consulta el expediente de cada cliente, sus vehículos y el historial de órdenes de servicio.
-      </Typography>
-
-      <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, mb: 2 }}>
         <TextField
           value={searchText}
           onChange={(event) => setSearchText(event.target.value)}
-          fullWidth
-          label="Buscar clientes"
           placeholder="Nombre, celular, placa, marca, modelo o año"
           slotProps={{
+            htmlInput: { 'aria-label': 'Buscar clientes' },
             input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
-              endAdornment: isFetching && !isLoading ? <CircularProgress size={20} /> : null,
+              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: tone.faint }} /></InputAdornment>,
+              endAdornment: isFetching && !isLoading ? <InputAdornment position="end"><CircularProgress size={18} /></InputAdornment> : null,
             },
           }}
+          sx={[inputSx, { '& .MuiOutlinedInput-root': { height: 44, borderRadius: 2.5 } }]}
         />
-      </Paper>
 
-      {isError ? (
-        <Alert severity="error">
-          {error instanceof Error ? error.message : 'No fue posible cargar los clientes.'}
-        </Alert>
-      ) : (
-        <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-          <TableContainer>
-            <Table aria-label="Listado de clientes">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Cliente</TableCell>
-                  <TableCell>Celular</TableCell>
-                  <TableCell>Vehículos</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={3} align="center" sx={{ py: 8 }}>
-                      <CircularProgress size={30} />
-                    </TableCell>
-                  </TableRow>
-                ) : clients.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3}>
-                      <Stack alignItems="center" spacing={1.5} sx={{ py: 7 }}>
-                        <DirectionsCarOutlinedIcon color="disabled" sx={{ fontSize: 44 }} />
-                        <Typography variant="h6">No se encontraron clientes</Typography>
-                        <Typography variant="body2" color="text.secondary" textAlign="center">
-                          {debouncedSearchText
-                            ? 'Prueba con otro nombre, teléfono o dato del vehículo.'
-                            : 'Registra el primer cliente para comenzar su expediente.'}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  clients.map((client) => (
-                    <TableRow
-                      key={client.id}
-                      hover
-                      tabIndex={0}
-                      sx={{ cursor: 'pointer' }}
-                      onClick={() => navigate(`/clients/${client.id}`)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          navigate(`/clients/${client.id}`);
-                        }
-                      }}
-                    >
-                      <TableCell>
-                        <Typography fontWeight={650}>{client.clientName}</Typography>
-                        {client.comments && (
-                          <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 360, display: 'block' }}>
-                            {client.comments}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>{client.phoneNumber}</TableCell>
-                      <TableCell>
-                        {client.vehicles.length === 0 ? (
-                          <Typography variant="body2" color="text.secondary">Sin vehículos</Typography>
-                        ) : (
-                          <Stack spacing={0.4}>
-                            {client.vehicles.slice(0, 2).map((vehicle) => (
-                              <Typography key={vehicle.clientVehicleId} variant="body2">
-                                {getVehicleLabel(vehicle)}
-                              </Typography>
-                            ))}
-                            {client.vehicles.length > 2 && (
-                              <Typography variant="caption" color="primary.main">
-                                +{client.vehicles.length - 2} vehículo(s)
-                              </Typography>
-                            )}
-                          </Stack>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            count={data?.pagination.total ?? 0}
-            page={page}
-            rowsPerPage={rowsPerPage}
-            rowsPerPageOptions={[10, 20, 50]}
-            labelRowsPerPage="Clientes por página"
-            onPageChange={(_, nextPage) => updatePagination(nextPage)}
-            onRowsPerPageChange={(event) => updatePagination(0, Number(event.target.value))}
-          />
-        </Paper>
-      )}
+        {isError ? (
+          <Alert severity="error" action={<Button color="inherit" onClick={() => void refetch()}>Reintentar</Button>}>
+            {error instanceof Error ? error.message : 'No fue posible cargar los clientes.'}
+          </Alert>
+        ) : (
+          <Box sx={[cardSx, { overflowX: 'auto' }]}>
+            <Box sx={{ minWidth: 760 }} aria-busy={isFetching}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: columns, gap: 2, px: 2.5, py: 1.5, bgcolor: tone.subtle, borderBottom: 1, borderColor: tone.border, fontSize: 12, fontWeight: 700, color: tone.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <span>Cliente</span><span>Teléfonos</span><span>Vehículos</span><span />
+              </Box>
+
+              {isLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+              ) : clients.length === 0 ? (
+                <Stack alignItems="center" spacing={1} sx={{ py: 8, px: 2, textAlign: 'center' }}>
+                  <PeopleAltOutlinedIcon sx={{ fontSize: 44, color: tone.borderStrong }} />
+                  <Typography sx={{ fontSize: 18, fontWeight: 700, color: tone.ink }}>
+                    {debouncedSearchText ? 'No encontramos coincidencias' : 'Todavía no hay clientes'}
+                  </Typography>
+                  <Typography sx={{ color: tone.faint }}>
+                    {debouncedSearchText
+                      ? 'Prueba con otro nombre, teléfono o dato del vehículo.'
+                      : 'Registra el primer cliente para comenzar su expediente.'}
+                  </Typography>
+                  {!debouncedSearchText && <Button startIcon={<AddIcon />} onClick={() => setIsCreateOpen(true)}>Nuevo cliente</Button>}
+                </Stack>
+              ) : clients.map((client) => (
+                <Box
+                  key={client.id}
+                  component={Link}
+                  to={`/clients/${client.id}`}
+                  sx={{ display: 'grid', gridTemplateColumns: columns, gap: 2, px: 2.5, py: 1.75, borderBottom: 1, borderColor: tone.divider, alignItems: 'center', textDecoration: 'none', color: tone.text, opacity: isFetching && !isLoading ? 0.6 : 1, '&:hover': { bgcolor: '#F8FAFC' }, '&:focus-visible': { outline: `2px solid ${tone.primary}`, outlineOffset: -2 } }}
+                >
+                  <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+                    <Avatar name={client.clientName} size={36} />
+                    <Box component="span" sx={{ minWidth: 0 }}>
+                      <Box component="span" sx={{ display: 'block', fontWeight: 700, color: tone.ink }}>{client.clientName}</Box>
+                      {client.comments && (
+                        <Box component="span" sx={{ display: 'block', color: tone.faint, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{client.comments}</Box>
+                      )}
+                    </Box>
+                  </Box>
+                  <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    <Box component="span" sx={{ display: 'block', fontWeight: 500 }}>{client.phoneNumber}</Box>
+                    {client.secondaryPhoneNumber && <Box component="span" sx={{ display: 'block', color: tone.faint, fontSize: 13 }}>{client.secondaryPhoneNumber}</Box>}
+                  </Box>
+                  <Box component="span" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0 }}>
+                    {client.vehicles.length === 0 && <Box component="span" sx={{ color: tone.faint, fontSize: 13 }}>Sin vehículos</Box>}
+                    {client.vehicles.slice(0, VISIBLE_VEHICLES).map((vehicle) => (
+                      <Box key={vehicle.clientVehicleId} component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                        <Box component="span" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vehicleName(vehicle)}</Box>
+                        <PlateBadge plate={vehicle.plate} size="sm" />
+                      </Box>
+                    ))}
+                    {client.vehicles.length > VISIBLE_VEHICLES && (
+                      <Box component="span" sx={{ color: tone.primary, fontSize: 13, fontWeight: 500 }}>
+                        +{client.vehicles.length - VISIBLE_VEHICLES} {client.vehicles.length - VISIBLE_VEHICLES === 1 ? 'vehículo más' : 'vehículos más'}
+                      </Box>
+                    )}
+                  </Box>
+                  <ChevronRightIcon fontSize="small" sx={{ color: '#9AA6B8' }} />
+                </Box>
+              ))}
+
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, px: 2.5, py: 1.25, color: tone.faint }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography id="clients-page-size" sx={{ fontSize: 13 }}>Por página</Typography>
+                  <Select
+                    size="small"
+                    value={rowsPerPage}
+                    onChange={(event) => updatePagination(0, Number(event.target.value))}
+                    inputProps={{ 'aria-labelledby': 'clients-page-size' }}
+                    sx={{ fontSize: 13, '& .MuiSelect-select': { py: 0.5 } }}
+                  >
+                    {PAGE_SIZES.map((size) => <MenuItem key={size} value={size}>{size}</MenuItem>)}
+                  </Select>
+                </Stack>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <span>{total ? `${page * rowsPerPage + 1}–${Math.min(total, (page + 1) * rowsPerPage)} de ${total}` : ''}</span>
+                  <IconButton aria-label="Página anterior" disabled={page === 0} onClick={() => updatePagination(page - 1)}><ChevronLeftIcon /></IconButton>
+                  <IconButton aria-label="Página siguiente" disabled={(page + 1) * rowsPerPage >= total} onClick={() => updatePagination(page + 1)}><ChevronRightIcon /></IconButton>
+                </Stack>
+              </Box>
+            </Box>
+          </Box>
+        )}
+      </PageContainer>
 
       <ClientCreateDialog
         open={isCreateOpen}
@@ -226,7 +205,7 @@ const ClientsPage = () => {
           navigate(`/clients/${client.id}`);
         }}
       />
-    </Box>
+    </PageCanvas>
   );
 };
 

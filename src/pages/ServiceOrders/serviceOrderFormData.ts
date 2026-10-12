@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { ReportedFailureType, ServiceOrder, ServiceOrderFormValues } from '../../types/serviceOrder.types';
-import { decodeServiceOrderLine, encodeServiceOrderLine } from './serviceOrderLineCodec';
+import { decodeServiceOrderLine, readServiceOrderLine } from './serviceOrderLineCodec';
 import { combinedAirPressureWarning, mergeObservations, sumLineAmounts } from './serviceOrderText';
 
 const WARRANTY_LEGAL_TEXT = 'Radiadores Díaz se obliga por esta garantía a reparar, reemplazar o cubrir únicamente el valor del producto en cuestión. En ningún caso cubrirá materiales, mano de obra o partes suministradas, ni daños incidentales o consecuenciales derivados de una garantía.';
@@ -18,7 +18,8 @@ export const createFormValues = (
   initialClientId?: number | null
 ): ServiceOrderFormValues => {
   const selectedFailures = order?.reportedFailures ?? [];
-  const hasStructuredLines = selectedFailures.some((failure) => (
+  const nativeContract = order?.lineTotalsMode != null;
+  const hasStructuredLines = nativeContract || selectedFailures.some((failure) => (
     decodeServiceOrderLine(failure.otherText).structured
   ));
   const legacyTargetId = hasStructuredLines ? null : selectedFailures[0]?.reportedFailureTypeId ?? null;
@@ -36,17 +37,18 @@ export const createFormValues = (
   compressionLeakDetected: order?.compressionLeakDetected ?? false,
   coolingSystemAirPressureDetected: order?.coolingSystemAirPressureDetected ?? false,
   radiatorSerialNumber: order?.radiatorSerialNumber ?? '',
-  radiatorObstructionLevel: order?.radiatorObstructionLevel ?? null,
+  radiatorObstructionLevel: order?.radiatorObstructionLevel ?? 0,
   subtotal: order?.subtotal ?? null,
-  preserveLegacySubtotal: Boolean(order && !hasStructuredLines && selectedFailures.length !== 1 && order.subtotal !== null && order.subtotal !== undefined),
+  preserveLegacySubtotal: order?.lineTotalsMode === 'LEGACY' || Boolean(order && !hasStructuredLines && selectedFailures.length !== 1 && order.subtotal !== null && order.subtotal !== undefined),
   taxAmount: order?.taxAmount ?? 0,
   warrantyMonths: order?.warrantyMonths ?? null,
   internalNote: '',
-  reportedFailures: failureTypes.map((type) => {
-    const selected = order?.reportedFailures.find(
+  reportedFailures: failureTypes.flatMap((type) => {
+    const matches = order?.reportedFailures.filter(
       (failure) => failure.reportedFailureTypeId === type.id
-    );
-    const decoded = decodeServiceOrderLine(selected?.otherText);
+    ) ?? [];
+    return (matches.length ? matches : [undefined]).map((selected) => {
+    const decoded = readServiceOrderLine(selected, nativeContract);
     const receivesLegacyFields = selected && type.id === legacyTargetId;
     return {
       reportedFailureTypeId: type.id,
@@ -58,8 +60,9 @@ export const createFormValues = (
           : null
       ),
       observation: mergeObservations(decoded.conceptName, decoded.observation, receivesLegacyFields ? order?.authorizedWorkDescription : '', receivesLegacyFields ? order?.vehicleOperationObservations : ''),
-      externalId: selected?.externalId,
+      externalId: selected?.externalId ?? uuidv4(),
     };
+    });
   }),
   };
 };
@@ -88,8 +91,9 @@ export const buildWriteFields = (values: ServiceOrderFormValues, failureTypes: R
   compressionLeakDetected: values.compressionLeakDetected,
   coolingSystemAirPressureDetected: values.coolingSystemAirPressureDetected,
   radiatorSerialNumber: nullableText(values.radiatorSerialNumber),
-  radiatorObstructionLevel: values.radiatorObstructionLevel ?? undefined,
+  radiatorObstructionLevel: values.radiatorObstructionLevel ?? 0,
   subtotal: values.preserveLegacySubtotal ? values.subtotal ?? 0 : lineSubtotal,
+  lineTotalsMode: values.preserveLegacySubtotal ? 'LEGACY' as const : 'LINES' as const,
   taxAmount: values.taxAmount,
   warrantyMonths: values.warrantyMonths ?? undefined,
   legalTextSnapshot: { warrantyDisclaimer: WARRANTY_LEGAL_TEXT },
@@ -97,7 +101,11 @@ export const buildWriteFields = (values: ServiceOrderFormValues, failureTypes: R
     .map((failure) => ({
       externalId: failure.externalId ?? uuidv4(),
       reportedFailureTypeId: failure.reportedFailureTypeId,
-      otherText: encodeServiceOrderLine({ ...failure, conceptName: '' }),
+      otherText: failuresById.get(failure.reportedFailureTypeId)?.allowsFreeText
+        ? nullableText(failure.customFailure)
+        : undefined,
+      amount: failure.amount,
+      observation: failure.observation.trim() || null,
     })),
   internalNotes: values.internalNote.trim()
     ? [{ externalId: uuidv4(), note: values.internalNote.trim() }]

@@ -4,6 +4,105 @@
  */
 
 export interface paths {
+    "/service-documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Documentos firmados de una orden; solo personal autorizado */
+        get: operations["listSignedServiceDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-documents/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Autoriza una carga para la versión guardada durante 15 minutos */
+        post: operations["createServiceUploadSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-documents/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["inspectServiceUploadSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-documents/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Token de carga de un uso. JPG, PNG o PDF hasta 10 MB. Se valida contenido y se congela la asociación a la versión autorizada. Reintento con idéntico archivo es idempotente. */
+        post: operations["uploadSignedServiceDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-documents/sessions/{sessionId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revokeServiceUploadSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/service-documents/{documentId}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSignedServiceDocumentUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clients": {
         parameters: {
             query?: never;
@@ -49,7 +148,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Actualizar o quitar el segundo teléfono sin cambiar el celular principal */
+        patch: operations["updateClientContact"];
         trace?: never;
     };
     "/clients/{clientId}/vehicles": {
@@ -124,8 +224,9 @@ export interface paths {
         get: operations["getService"];
         /**
          * Editar un servicio con control optimista
-         * @description Reemplaza los campos mutables y la selección de fallas. No se pueden
-         *     editar servicios `COMPLETED` o `CANCELLED`. Las notas internas se
+         * @description Reemplaza los campos mutables y la selección de fallas. Los servicios
+         *     `COMPLETED` siguen siendo editables y conservan su estado; los
+         *     `CANCELLED` no admiten cambios. Las notas internas se
          *     aceptan en escritura pero nunca aparecen en respuestas públicas.
          *
          */
@@ -339,6 +440,34 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        SignedServiceDocument: {
+            /** Format: uuid */
+            externalId: string;
+            serviceVersion: number;
+            folioSnapshot: string;
+            /** @enum {string} */
+            mimeType: "image/jpeg" | "image/png" | "application/pdf";
+            byteSize: number;
+            /** Format: date-time */
+            createdAt: string;
+            documentVersion: number;
+        };
+        ServiceUploadSession: {
+            /** Format: uuid */
+            id: string;
+            token: string;
+            /** Format: date-time */
+            expiresAt: string;
+            serviceVersion: number;
+        };
+        ServiceUploadInfo: {
+            /** Format: date-time */
+            expiresAt: string;
+            /** @enum {string} */
+            status: "READY" | "UPLOADING" | "COMPLETED" | "REVOKED";
+            serviceVersion: number;
+            folio: string;
+        };
         ErrorResponse: {
             code: string;
             error: string;
@@ -423,8 +552,12 @@ export interface components {
             externalId: string;
             clientName: string;
             phoneNumber: string;
+            secondaryPhoneNumber?: components["schemas"]["NullableString"];
             comments?: components["schemas"]["NullableString"];
             vehicles?: components["schemas"]["VehicleInput"][];
+        };
+        ClientContactUpdateRequest: {
+            secondaryPhoneNumber: components["schemas"]["NullableString"];
         };
         AddClientVehiclesRequest: {
             vehicle: components["schemas"]["VehicleInput"];
@@ -439,6 +572,7 @@ export interface components {
             phoneNumber: string;
             /** @description Teléfono normalizado para conciliación de negocio */
             phoneNormalized: string;
+            secondaryPhoneNumber?: components["schemas"]["NullableString"];
             comments?: string;
             active: boolean;
             /** Format: date-time */
@@ -458,6 +592,10 @@ export interface components {
             externalId: string;
             reportedFailureTypeId: number;
             otherText?: components["schemas"]["NullableString"];
+            /** @description Importe del renglón; null indica no capturado y cero es un importe explícito. */
+            amount?: components["schemas"]["NullableMoney"];
+            /** @description Trabajo, refacción y notas correspondientes a esta falla. */
+            observation?: components["schemas"]["NullableString"];
         };
         /** @description Confidencial; nunca se devuelve en contratos públicos ni PDFs */
         InternalNoteInput: {
@@ -482,6 +620,11 @@ export interface components {
             coolingSystemAirPressureDetected: boolean;
             radiatorSerialNumber?: string;
             radiatorObstructionLevel?: number;
+            /**
+             * @description LINES calcula subtotal en servidor, ignorando el subtotal enviado. LEGACY conserva un subtotal histórico sin importes por renglón. Omitir solo en contratos históricos.
+             * @enum {string}
+             */
+            lineTotalsMode?: "LINES" | "LEGACY";
             subtotal?: components["schemas"]["Money"];
             taxAmount: components["schemas"]["Money"];
             warrantyMonths?: components["schemas"]["WarrantyMonths"];
@@ -523,6 +666,8 @@ export interface components {
             labelSnapshot: string;
             displayOrderSnapshot: number;
             otherText?: string;
+            amount?: components["schemas"]["NullableMoney"];
+            observation?: components["schemas"]["NullableString"];
             /** Format: date-time */
             createdAt?: string;
         };
@@ -569,6 +714,11 @@ export interface components {
             coolingSystemAirPressureDetected?: boolean;
             radiatorSerialNumber?: components["schemas"]["NullableString"];
             radiatorObstructionLevel?: number | null;
+            /**
+             * @description null identifica órdenes anteriores al contrato de renglones.
+             * @enum {string|null}
+             */
+            lineTotalsMode?: "LINES" | "LEGACY" | null;
             subtotal?: components["schemas"]["NullableMoney"];
             taxAmount: components["schemas"]["Money"];
             total: components["schemas"]["Money"];
@@ -897,6 +1047,188 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listSignedServiceDocuments: {
+        parameters: {
+            query: {
+                serviceExternalId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Documentos inmutables, sin URL pública */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedServiceDocument"][];
+                };
+            };
+        };
+    };
+    createServiceUploadSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    serviceExternalId: string;
+                    expectedVersion: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Capacidad de carga; no da acceso de lectura al expediente */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceUploadSession"];
+                };
+            };
+        };
+    };
+    inspectServiceUploadSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Datos mínimos de la carga, sin información personal */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceUploadInfo"];
+                };
+            };
+            /** @description Enlace vencido o revocado */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    uploadSignedServiceDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    token: string;
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Carga ya completada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Documento asociado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Archivo o enlace inválido */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Carga concurrente o enlace ya utilizado */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error recuperable; reintentar con el mismo archivo */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokeServiceUploadSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Capacidad revocada; no borra documentos */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getSignedServiceDocumentUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enlace de lectura autorizado, válido por 5 minutos */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        url: string;
+                        mimeType: string;
+                    };
+                };
+            };
+        };
+    };
     searchClients: {
         parameters: {
             query?: {
@@ -1012,6 +1344,36 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["ServerError"];
+        };
+    };
+    updateClientContact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                clientId: components["parameters"]["ClientIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientContactUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Contacto actualizado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     addClientVehicles: {

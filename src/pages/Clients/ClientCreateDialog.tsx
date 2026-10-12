@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useClientMutations } from '../../hooks/useClients';
 import type { Client, ClientFormValues } from '../../types/client.types';
 import { clientSchema } from './clientSchemas';
+import { PhoneField } from './PhoneField';
 
 interface ClientCreateDialogProps {
   open: boolean;
@@ -25,6 +26,7 @@ interface ClientCreateDialogProps {
 const defaultValues: ClientFormValues = {
   clientName: '',
   phoneNumber: '',
+  secondaryPhoneNumber: '',
   comments: '',
 };
 
@@ -51,6 +53,7 @@ const ClientCreateDialog = ({ open, onClose, onCreated }: ClientCreateDialogProp
       externalId: uuidv4(),
       clientName: values.clientName.trim(),
       phoneNumber: values.phoneNumber.trim(),
+      secondaryPhoneNumber: values.secondaryPhoneNumber.trim() || null,
       comments: values.comments.trim() || null,
       vehicles: [],
     });
@@ -92,17 +95,19 @@ const ClientCreateDialog = ({ open, onClose, onCreated }: ClientCreateDialogProp
                 name="phoneNumber"
                 control={control}
                 render={({ field }) => (
-                  <TextField
+                  <PhoneField
                     {...field}
                     fullWidth
                     required
                     label="Celular"
-                    inputMode="tel"
                     error={Boolean(errors.phoneNumber)}
                     helperText={errors.phoneNumber?.message}
                   />
                 )}
               />
+            </Grid>
+            <Grid size={12}>
+              <Controller name="secondaryPhoneNumber" control={control} render={({ field }) => <PhoneField {...field} fullWidth label="Teléfono secundario (opcional)" error={Boolean(errors.secondaryPhoneNumber)} helperText={errors.secondaryPhoneNumber?.message} />} />
             </Grid>
             <Grid size={12}>
               <Controller

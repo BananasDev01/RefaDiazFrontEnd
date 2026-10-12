@@ -4,6 +4,7 @@ export type Pagination = components['schemas']['Pagination'];
 export type Client = components['schemas']['ClientResponse'];
 export type ClientListResponse = components['schemas']['ClientListResponse'];
 export type ClientCreateRequest = components['schemas']['ClientCreateRequest'];
+export type ClientContactUpdateRequest = components['schemas']['ClientContactUpdateRequest'];
 export type ClientVehicle = components['schemas']['VehicleResponse'];
 export type ClientVehicleInput = components['schemas']['VehicleInput'];
 export type AddClientVehiclesRequest = components['schemas']['AddClientVehiclesRequest'];
@@ -24,5 +25,6 @@ export interface ClientVehicleFormValues {
 export interface ClientFormValues {
   clientName: string;
   phoneNumber: string;
+  secondaryPhoneNumber: string;
   comments: string;
 }
