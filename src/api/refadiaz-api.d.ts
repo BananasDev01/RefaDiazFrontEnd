@@ -1423,6 +1423,8 @@ export interface operations {
                 phone?: components["parameters"]["PhoneQuery"];
                 /** @description Placa normalizada por el servidor */
                 plate?: components["parameters"]["PlateQuery"];
+                /** @description Texto libre por palabras (folio, cliente, teléfonos, marca, modelo, año, color, placas, serie del radiador, motivo de ingreso); cada palabra debe coincidir */
+                q?: string;
                 status?: components["schemas"]["ServiceStatus"];
                 clientId?: components["parameters"]["ClientIdQuery"];
                 /** @description Predeterminado 50; el servidor limita valores mayores a 100 */

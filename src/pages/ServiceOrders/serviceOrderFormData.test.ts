@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildWriteFields, createFormValues } from './serviceOrderFormData';
-import { combinedAirPressureWarning, AIR_PRESSURE_WARNING, HEATING_WARNING, sumLineAmounts } from './serviceOrderText';
+import { AIR_PRESSURE_WARNING, sumLineAmounts } from './serviceOrderText';
 import type { ReportedFailureType, ServiceOrder } from '../../types/serviceOrder.types';
 
 const types: ReportedFailureType[] = [
@@ -91,11 +91,8 @@ describe('datos del formulario de servicios', () => {
     expect(values.preserveLegacySubtotal).toBe(false);
   });
 
-  it('combina la advertencia sin duplicarla en órdenes históricas', () => {
-    const combined = `${AIR_PRESSURE_WARNING} ${HEATING_WARNING}`;
-    expect(combinedAirPressureWarning()).toBe(combined);
-    expect(combinedAirPressureWarning(HEATING_WARNING)).toBe(combined);
-    expect(combinedAirPressureWarning(combined)).toBe(combined);
+  it('las órdenes históricas toman la leyenda vigente de presión de aire', () => {
+    expect(createFormValues(types, { ...order, informationalNote: 'Texto anterior' }).informationalNote).toBe(AIR_PRESSURE_WARNING);
   });
 
   it('suma en centavos y distingue costo cero de costo no capturado', () => {

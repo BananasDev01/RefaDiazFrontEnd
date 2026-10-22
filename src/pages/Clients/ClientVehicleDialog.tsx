@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -165,7 +166,35 @@ const ClientVehicleDialog = ({ clientId, open, onClose, onCreated }: ClientVehic
               <Controller name="color" control={control} render={({ field }) => <TextField {...field} fullWidth label="Color (opcional)" />} />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <Controller name="plate" control={control} render={({ field }) => <TextField {...field} fullWidth label="Placas (opcional)" error={Boolean(duplicate)} helperText={duplicate ? 'Este cliente ya tiene un vehículo con estas placas.' : undefined} />} />
+              <Controller
+                name="plate"
+                control={control}
+                render={({ field }) => (
+                  <>
+                    <TextField
+                      {...field}
+                      fullWidth
+                      required
+                      label="Placas"
+                      error={Boolean(duplicate || errors.plate)}
+                      helperText={duplicate ? 'Este cliente ya tiene un vehículo con estas placas.' : errors.plate?.message}
+                      slotProps={{ htmlInput: { style: { textTransform: 'uppercase' } } }}
+                    />
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                      {['SIN PLACAS', 'A LA MANO'].map((placeholder) => (
+                        <Chip
+                          key={placeholder}
+                          label={placeholder}
+                          size="small"
+                          variant={normalizePlate(field.value) === normalizePlate(placeholder) ? 'filled' : 'outlined'}
+                          color="primary"
+                          onClick={() => setValue('plate', placeholder, { shouldDirty: true, shouldValidate: true })}
+                        />
+                      ))}
+                    </Box>
+                  </>
+                )}
+              />
             </Grid>
             <Grid size={12}>
               <Controller name="comments" control={control} render={({ field }) => <TextField {...field} fullWidth multiline minRows={2} label="Comentarios del vehículo (opcional)" />} />

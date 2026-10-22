@@ -155,7 +155,7 @@ export const ClientVehiclePicker = ({
 
       <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="flex-end" flexWrap="wrap" useFlexGap>
         <Typography sx={{ color: tone.faint }} aria-live="polite">
-          {ready && selectedClient && chosenVehicle ? `${selectedClient.clientName} · ${vehicleName(chosenVehicle)}` : 'Elige el vehículo que ingresa'}
+          {ready && selectedClient && chosenVehicle ? [selectedClient.clientName, vehicleName(chosenVehicle), chosenVehicle.color].filter(Boolean).join(' · ') : 'Elige el vehículo que ingresa'}
         </Typography>
         {onCancel && <Button onClick={onCancel}>Cancelar</Button>}
         <Button

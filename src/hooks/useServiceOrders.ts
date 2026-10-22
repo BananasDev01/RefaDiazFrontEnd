@@ -82,7 +82,7 @@ export const useServiceOrderMutations = () => {
       startServiceOrder(externalId, expectedVersion),
     onSuccess: (order) => {
       synchronizeOrder(order);
-      showSnackbar('La orden está en progreso.', 'success');
+      showSnackbar('La orden pasó a taller.', 'success');
     },
     onError: (error: Error) => showSnackbar(`No se pudo iniciar la orden: ${error.message}`, 'error'),
   });

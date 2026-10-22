@@ -2,9 +2,9 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { Box, ButtonBase, Checkbox, Collapse, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { memo, useId, useState } from 'react';
-import { Controller, useFormContext, useFormState, useWatch } from 'react-hook-form';
+import { Controller, useFormContext, useFormState } from 'react-hook-form';
 import type { ServiceOrderFormValues } from '../../../types/serviceOrder.types';
-import { combinedAirPressureWarning, COMPRESSION_WARNING } from '../serviceOrderText';
+import { AIR_PRESSURE_WARNING, COMPRESSION_WARNING } from '../serviceOrderText';
 import { FieldLabel, SectionCard } from '../ui';
 import { inputSx, tone } from '../tokens';
 import { ImportantNoteField } from './ImportantNoteField';
@@ -36,7 +36,6 @@ const WarningToggle = ({ checked, onChange, label, disabled }: { checked: boolea
 export const ConditionsSection = memo(({ readOnly }: { readOnly: boolean }) => {
   const { control, getValues } = useFormContext<ServiceOrderFormValues>();
   const { errors } = useFormState({ control, name: ['radiatorSerialNumber', 'importantInformation', 'internalNote'] });
-  const informationalNote = useWatch({ control, name: 'informationalNote' });
   // Read once: watching the private note would re-render the section on every keystroke.
   const [privateOpen, setPrivateOpen] = useState(() => Boolean(getValues('internalNote')));
   const levelLabelId = useId();
@@ -57,7 +56,7 @@ export const ConditionsSection = memo(({ readOnly }: { readOnly: boolean }) => {
               <Controller
                 name="coolingSystemAirPressureDetected"
                 control={control}
-                render={({ field }) => <WarningToggle checked={field.value} onChange={field.onChange} label={combinedAirPressureWarning(informationalNote)} disabled={readOnly} />}
+                render={({ field }) => <WarningToggle checked={field.value} onChange={field.onChange} label={AIR_PRESSURE_WARNING} disabled={readOnly} />}
               />
             </Box>
           </Box>

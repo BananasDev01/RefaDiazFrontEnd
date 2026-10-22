@@ -68,7 +68,9 @@ describe('mapServiceOrderToPdfData', () => {
       { label: 'Servicio radiador', selected: false, detail: undefined, amount: null, observation: '' },
       { label: 'Otros', selected: true, detail: 'Revisar deposito', amount: 1000, observation: 'Cambio de radiador\nDepósito deteriorado' },
     ]);
-    expect(result.reportedFailureSummary).toBe('Revisar deposito');
+    // Without a reported reason FALLA stays blank instead of repeating the selected lines.
+    expect(result.reportedFailureSummary).toBe('');
+    expect(mapServiceOrderToPdfData({ ...order, reportedFailureSummary: ' Se calienta en tráfico ' }, failureTypes).reportedFailureSummary).toBe('Se calienta en tráfico');
     expect(result.warrantyLegalText).toBe('Garantia de prueba');
     expect(result.total).toBe(1160);
   });

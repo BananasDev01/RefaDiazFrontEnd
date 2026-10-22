@@ -1,7 +1,7 @@
 import type { ReportedFailureType, ServiceOrder } from '../../../types/serviceOrder.types';
 import { getSnapshotText } from '../../../types/serviceOrder.types';
 import { decodeServiceOrderLine, readServiceOrderLine } from '../serviceOrderLineCodec';
-import { combinedAirPressureWarning, mergeObservations } from '../serviceOrderText';
+import { AIR_PRESSURE_WARNING, mergeObservations } from '../serviceOrderText';
 
 export const DEFAULT_WARRANTY_LEGAL_TEXT = 'Radiadores Díaz se obliga por esta garantía a reparar, reemplazar o cubrir únicamente el valor del producto en cuestión. En ningún caso cubrirá materiales, mano de obra o partes suministradas, ni daños incidentales o consecuenciales derivados de una garantía.';
 
@@ -171,11 +171,6 @@ export const mapServiceOrderToPdfData = (
       });
     });
 
-  const selectedFailureSummary = failures
-    .filter((failure) => failure.selected)
-    .map((failure) => failure.detail || failure.label)
-    .join(', ');
-
   return {
     folio: order.folioNumber
       ? String(order.folioNumber).padStart(4, '0')
@@ -183,7 +178,8 @@ export const mapServiceOrderToPdfData = (
     serviceDate: formatDate(order.serviceDate),
     clientName: getSnapshotText(order.clientSnapshot, 'clientName', 'client_name', 'name', 'nombre') ?? '',
     phoneNumber: [getSnapshotText(order.clientSnapshot, 'phoneNumber', 'phone_number', 'phone', 'telefono'), getSnapshotText(order.clientSnapshot, 'secondaryPhoneNumber', 'secondary_phone_number')].filter(Boolean).join(' / '),
-    reportedFailureSummary: order.reportedFailureSummary?.trim() || selectedFailureSummary,
+    // FALLA prints only what the customer reported; the selected lines already list the work.
+    reportedFailureSummary: order.reportedFailureSummary?.trim() ?? '',
     brand: getSnapshotText(vehicle, 'brand', 'brandName', 'brand_name', 'marca')
       ?? nestedSnapshotText(vehicle, 'carModel', 'brandName', 'brand_name')
       ?? nestedSnapshotText(asRecord(vehicle.carModel), 'brand', 'name')
@@ -199,7 +195,7 @@ export const mapServiceOrderToPdfData = (
     importantInformation: mergeObservations(order.importantInformation,
       order.reportedFailures.length === 0 ? legacyAuthorizedWork : '',
       order.reportedFailures.length === 0 ? order.vehicleOperationObservations : ''),
-    informationalNote: combinedAirPressureWarning(order.informationalNote),
+    informationalNote: AIR_PRESSURE_WARNING,
     compressionLeakDetected: Boolean(order.compressionLeakDetected),
     coolingSystemAirPressureDetected: Boolean(order.coolingSystemAirPressureDetected),
     radiatorSerialNumber: order.radiatorSerialNumber?.trim() ?? '',

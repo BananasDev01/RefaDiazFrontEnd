@@ -52,6 +52,10 @@ export const clientVehicleSchema: yup.ObjectSchema<ClientVehicleFormValues> = yu
     .max(currentYear + 1, `El año no puede ser mayor a ${currentYear + 1}.`),
   version: yup.string().trim().max(300).defined(),
   color: yup.string().trim().max(300).defined(),
-  plate: yup.string().trim().max(20).defined(),
+  plate: yup
+    .string()
+    .trim()
+    .required('Captura las placas; usa «SIN PLACAS» o «A LA MANO» si no tiene.')
+    .max(20, 'Las placas no pueden exceder 20 caracteres.'),
   comments: yup.string().trim().max(700).defined(),
 });
