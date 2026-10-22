@@ -2,13 +2,15 @@ import AddIcon from '@mui/icons-material/Add';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DirectionsCarOutlinedIcon from '@mui/icons-material/DirectionsCarOutlined';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import PhoneIphoneOutlinedIcon from '@mui/icons-material/PhoneIphoneOutlined';
+import StickyNote2OutlinedIcon from '@mui/icons-material/StickyNote2Outlined';
 import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useClient } from '../../hooks/useClients';
 import { useServiceOrders } from '../../hooks/useServiceOrders';
-import ClientContactDialog from './ClientContactDialog';
+import ClientEditDialog from './ClientEditDialog';
 import ClientVehicleDialog from './ClientVehicleDialog';
 import {
   folioLabel,
@@ -75,9 +77,15 @@ export const ClientDetailPage = () => {
                   <Box component="strong" sx={{ color: tone.ink }}>{client.phoneNumber}</Box> · principal
                 </Box>
                 {client.secondaryPhoneNumber && <span>{client.secondaryPhoneNumber} · secundario</span>}
-                <Button size="small" onClick={() => setEditingContact(true)} sx={{ fontWeight: 500, minWidth: 0, p: 0 }}>
-                  {client.secondaryPhoneNumber ? 'Editar teléfono secundario' : 'Agregar teléfono secundario'}
+                <Button size="small" startIcon={<EditOutlinedIcon fontSize="small" />} onClick={() => setEditingContact(true)} sx={{ fontWeight: 500, minWidth: 0, py: 0 }}>
+                  Editar datos
                 </Button>
+              </Box>
+              <Box sx={{ mt: 1, display: 'flex', alignItems: 'flex-start', gap: 0.75, color: client.comments ? tone.text : tone.faint, fontSize: 14 }}>
+                <StickyNote2OutlinedIcon fontSize="small" sx={{ mt: '1px', color: tone.faint }} />
+                <Box component="span" sx={{ whiteSpace: 'pre-line' }}>
+                  {client.comments || 'Sin comentarios. Usa «Editar datos» para agregar notas sobre el cliente.'}
+                </Box>
               </Box>
             </Box>
             <Button
@@ -126,6 +134,9 @@ export const ClientDetailPage = () => {
                       </Box>
                       <PlateBadge plate={vehicle.plate} />
                     </Box>
+                    {vehicle.comments && (
+                      <Typography sx={{ mt: 1, fontSize: 13, color: tone.muted, whiteSpace: 'pre-line' }}>{vehicle.comments}</Typography>
+                    )}
                     {active ? (
                       <Box sx={{ mt: 1.25, px: 1.25, py: 1, borderRadius: 2, bgcolor: tone.primarySoft, color: tone.primaryDark, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                         <span>En taller · orden {folioLabel(active)}</span>
@@ -140,12 +151,6 @@ export const ClientDetailPage = () => {
                 );
               })}
             </Stack>
-          )}
-          {client.comments && (
-            <Box sx={{ mt: 2, pt: 1.75, borderTop: 1, borderColor: tone.divider }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 500, color: tone.muted }}>Comentarios</Typography>
-              <Typography sx={{ mt: 0.5 }}>{client.comments}</Typography>
-            </Box>
           )}
         </SectionCard>
 
@@ -191,7 +196,7 @@ export const ClientDetailPage = () => {
       </PageContainer>
 
       <ClientVehicleDialog clientId={id} open={addingVehicle} onClose={() => setAddingVehicle(false)} />
-      {editingContact && <ClientContactDialog client={client} onClose={() => setEditingContact(false)} />}
+      {editingContact && <ClientEditDialog client={client} onClose={() => setEditingContact(false)} />}
     </PageCanvas>
   );
 };

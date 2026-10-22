@@ -247,6 +247,9 @@ let mockProducts: Product[] = JSON.parse(JSON.stringify(originalMockProducts));
 let mockVehicleNotes: VehicleNote[] = JSON.parse(JSON.stringify(originalMockVehicleNotes));
 let mockClients: Client[] = JSON.parse(JSON.stringify(originalMockClients));
 
+/** Current mock client, after any mutation made by the handlers. */
+export const getMockClient = (id: number) => mockClients.find((client) => client.id === id);
+
 export const resetMockProviders = () => {
   mockProviders = JSON.parse(JSON.stringify(originalMockProviders));
 };
@@ -325,7 +328,10 @@ export const handlers = [
     const query = url.searchParams.get('q')?.toLowerCase() ?? '';
     const limit = Number(url.searchParams.get('limit') ?? 50);
     const offset = Number(url.searchParams.get('offset') ?? 0);
-    const filteredClients = query
+    const phone = url.searchParams.get('phone')?.replace(/\D/g, '') ?? '';
+    const filteredClients = phone
+      ? mockClients.filter((client) => [client.phoneNumber, client.secondaryPhoneNumber].some((value) => value?.replace(/\D/g, '') === phone))
+      : query
       ? mockClients.filter((client) => {
           const searchable = [
             client.clientName,
@@ -352,6 +358,14 @@ export const handlers = [
     return client
       ? HttpResponse.json(client)
       : new HttpResponse(null, { status: 404 });
+  }),
+
+  http.patch(`${apiBaseUrl}/clients/:clientId`, async ({ params, request }) => {
+    const payload = await request.json() as Partial<Pick<Client, 'clientName' | 'comments' | 'secondaryPhoneNumber'>>;
+    const client = mockClients.find((item) => item.id === Number(params.clientId));
+    if (!client) return new HttpResponse(null, { status: 404 });
+    Object.assign(client, payload);
+    return HttpResponse.json(client);
   }),
 
   http.post(`${apiBaseUrl}/clients`, async ({ request }) => {

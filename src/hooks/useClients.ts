@@ -22,13 +22,21 @@ export const clientQueryKeys = {
   detail: (clientId: number) => [...clientQueryKeys.details(), clientId] as const,
 };
 
-export const useClients = (filters: ClientSearchParams) => {
+export const useClients = (filters: ClientSearchParams, enabled = true) => {
   return useQuery({
     queryKey: clientQueryKeys.list(filters),
     queryFn: () => searchClients(filters),
     placeholderData: (previousData) => previousData,
+    enabled,
   });
 };
+
+/** Human message for business errors the clients API reports by code. */
+export const clientErrorMessage = (error: Error) => (
+  error.message.includes('VEHICLE_PLATE_DUPLICATE')
+    ? 'Este cliente ya tiene un vehículo con esas placas.'
+    : error.message
+);
 
 export const useClient = (clientId: number | null) => {
   return useQuery({
@@ -54,9 +62,9 @@ export const useClientMutations = () => {
       queryClient.setQueryData(clientQueryKeys.detail(client.id), client);
       showSnackbar(
         client.reconciledByPhone
-          ? 'El teléfono ya existía; se conciliaron los vehículos nuevos.'
+          ? `Ese celular ya estaba registrado a nombre de ${client.clientName}. Se usó su expediente; el nombre y los comentarios capturados no se cambiaron.`
           : 'Cliente registrado exitosamente.',
-        'success'
+        client.reconciledByPhone ? 'info' : 'success'
       );
     },
     onError: (error: Error) => {
@@ -78,7 +86,7 @@ export const useClientMutations = () => {
       showSnackbar('Vehículo agregado exitosamente.', 'success');
     },
     onError: (error: Error) => {
-      showSnackbar(`No se pudo agregar el vehículo: ${error.message}`, 'error');
+      showSnackbar(`No se pudo agregar el vehículo: ${clientErrorMessage(error)}`, 'error');
     },
   });
 
@@ -87,9 +95,9 @@ export const useClientMutations = () => {
     onSuccess: (client) => {
       queryClient.setQueryData(clientQueryKeys.detail(client.id), client);
       void queryClient.invalidateQueries({ queryKey: clientQueryKeys.lists() });
-      showSnackbar('Teléfono actualizado.', 'success');
+      showSnackbar('Datos del cliente actualizados.', 'success');
     },
-    onError: (error: Error) => showSnackbar(`No se pudo guardar el teléfono: ${error.message}`, 'error'),
+    onError: (error: Error) => showSnackbar(`No se pudieron guardar los datos: ${error.message}`, 'error'),
   });
 
   return {

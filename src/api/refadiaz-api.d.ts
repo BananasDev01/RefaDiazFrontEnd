@@ -148,7 +148,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Actualizar o quitar el segundo teléfono sin cambiar el celular principal */
+        /** Actualizar nombre, comentarios o teléfono secundario sin cambiar el celular principal */
         patch: operations["updateClientContact"];
         trace?: never;
     };
@@ -556,8 +556,11 @@ export interface components {
             comments?: components["schemas"]["NullableString"];
             vehicles?: components["schemas"]["VehicleInput"][];
         };
+        /** @description Al menos uno de los campos. El celular principal identifica al cliente y no se edita. */
         ClientContactUpdateRequest: {
-            secondaryPhoneNumber: components["schemas"]["NullableString"];
+            clientName?: string;
+            comments?: string | null;
+            secondaryPhoneNumber?: components["schemas"]["NullableString"];
         };
         AddClientVehiclesRequest: {
             vehicle: components["schemas"]["VehicleInput"];

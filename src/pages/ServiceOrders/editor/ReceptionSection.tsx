@@ -27,13 +27,18 @@ import { vehicleDetails, vehicleName } from '../serviceOrderUtils';
 import { FieldLabel, IconTile, PlateBadge, SectionCard } from '../ui';
 import { inputSx, tone } from '../tokens';
 
-const SummaryTile = ({ icon, caption, title, detail, actions }: { icon: ReactNode; caption: string; title: ReactNode; detail?: ReactNode; actions: ReactNode }) => (
+const SummaryTile = ({ icon, caption, title, detail, note, actions }: { icon: ReactNode; caption: string; title: ReactNode; detail?: ReactNode; note?: string | null; actions: ReactNode }) => (
   <Box sx={{ border: 1, borderColor: tone.border, borderRadius: 2.5, p: 1.75, display: 'flex', gap: 1.75, alignItems: 'flex-start', minWidth: 0 }}>
     <IconTile>{icon}</IconTile>
     <Box sx={{ flex: 1, minWidth: 0 }}>
       <Typography sx={{ fontSize: 12, color: tone.faint, fontWeight: 500 }}>{caption}</Typography>
       <Typography sx={{ fontSize: 16, fontWeight: 700, color: tone.ink, overflowWrap: 'anywhere' }}>{title}</Typography>
       {detail && <Box sx={{ color: tone.muted, display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>{detail}</Box>}
+      {note && (
+        <Typography title={note} sx={{ mt: 0.75, fontSize: 13, color: tone.warnInk, bgcolor: tone.warnTint, borderRadius: 1.5, px: 1, py: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', whiteSpace: 'pre-line' }}>
+          {note}
+        </Typography>
+      )}
     </Box>
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>{actions}</Box>
   </Box>
@@ -79,6 +84,7 @@ export const ReceptionSection = memo(({ readOnly, onOpenClient }: ReceptionSecti
             caption="Cliente"
             title={isLoading ? <Skeleton width={180} /> : client?.clientName ?? 'Cliente no disponible'}
             detail={client && <span>{[client.phoneNumber, client.secondaryPhoneNumber].filter(Boolean).join(' · ')}</span>}
+            note={client?.comments}
             actions={(
               <>
                 <Button size="small" sx={linkButton} onClick={() => onOpenClient(clientId)}>Ver expediente</Button>
@@ -90,6 +96,7 @@ export const ReceptionSection = memo(({ readOnly, onOpenClient }: ReceptionSecti
             icon={<DirectionsCarOutlinedIcon />}
             caption="Vehículo"
             title={isLoading ? <Skeleton width={180} /> : vehicle ? vehicleName(vehicle) : <Box component="span" sx={{ color: errors.clientVehicleId ? 'error.main' : tone.faint, fontWeight: 500 }}>{errors.clientVehicleId?.message ?? 'Elige el vehículo'}</Box>}
+            note={vehicle?.comments}
             detail={vehicle && (
               <>
                 {vehicleDetails(vehicle) && <span>{vehicleDetails(vehicle)}</span>}
