@@ -178,6 +178,12 @@ export const ClientVehiclePicker = ({
           setCreatingClient(false);
           setVehicleFor(client.id);
         }}
+        onUseExisting={(client) => {
+          // Pick the registered client and let the operator choose among its vehicles.
+          setSelection({ clientId: client.id, vehicleId: client.vehicles.length === 1 ? client.vehicles[0].clientVehicleId : null });
+          setCreatingClient(false);
+          if (client.vehicles.length === 0) setVehicleFor(client.id);
+        }}
       />
       {vehicleFor !== null && (
         <ClientVehicleDialog

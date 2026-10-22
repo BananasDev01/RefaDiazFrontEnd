@@ -9,6 +9,12 @@ const currentYear = new Date().getFullYear();
 export const PHONE_DIGITS = 10;
 /** Keeps only digits, capped at a 10-digit Mexican phone number. */
 export const phoneDigits = (value?: string | null) => (value ?? '').replace(/\D/g, '').slice(0, PHONE_DIGITS);
+/** Same normalization as the backend: uppercase letters and digits only. */
+export const normalizePlate = (value?: string | null) => (value ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+/** Shop placeholders that many vehicles may share: no plates, or a part brought by hand. */
+export const REPEATABLE_PLATES = ['SINPLACAS', 'ALAMANO'];
+export const isRepeatablePlate = (value?: string | null) => REPEATABLE_PLATES.includes(normalizePlate(value));
+
 const hasTenDigits = (value?: string | null) => (value ?? '').replace(/\D/g, '').length === PHONE_DIGITS;
 
 export const clientSchema: yup.ObjectSchema<ClientFormValues> = yup.object({

@@ -1,6 +1,7 @@
 import { yupResolver } from '@hookform/resolvers/yup';
 import CloseIcon from '@mui/icons-material/Close';
 import {
+  Alert,
   Box,
   Button,
   Dialog,
@@ -14,10 +15,10 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { BrandModelSelector } from '../../components/common/BrandModelSelector';
-import { useClientMutations } from '../../hooks/useClients';
+import { useClient, useClientMutations } from '../../hooks/useClients';
 import { useBrands, useModels } from '../../hooks/useVehicleData';
 import type { Client, ClientVehicleFormValues } from '../../types/client.types';
-import { clientVehicleSchema } from './clientSchemas';
+import { clientVehicleSchema, isRepeatablePlate, normalizePlate } from './clientSchemas';
 
 interface ClientVehicleDialogProps {
   clientId: number;
@@ -49,6 +50,15 @@ const ClientVehicleDialog = ({ clientId, open, onClose, onCreated }: ClientVehic
     defaultValues,
   });
   const selectedBrandId = useWatch({ control, name: 'brandId' });
+  const plate = normalizePlate(useWatch({ control, name: 'plate' }));
+  const { data: client } = useClient(open ? clientId : null);
+  // The backend rejects repeated plates per client; say so before saving and offer the existing vehicle.
+  const duplicate = plate && !isRepeatablePlate(plate)
+    ? client?.vehicles.find((vehicle) => normalizePlate(vehicle.plateNormalized ?? vehicle.plate) === plate)
+    : undefined;
+  const duplicateName = duplicate
+    ? [duplicate.carModel?.brand?.name, duplicate.carModel?.name, duplicate.modelYear].filter(Boolean).join(' ') || 'un vehículo'
+    : '';
   const selectedModelId = useWatch({ control, name: 'carModelId' });
   const { data: brands = [] } = useBrands();
   const { data: models = [] } = useModels(selectedBrandId);
@@ -67,7 +77,15 @@ const ClientVehicleDialog = ({ clientId, open, onClose, onCreated }: ClientVehic
     onClose();
   };
 
+  const chooseDuplicate = () => {
+    if (!client || !duplicate) return;
+    reset(defaultValues);
+    onCreated?.(client, duplicate.clientVehicleId);
+    onClose();
+  };
+
   const handleCreate = async (values: ClientVehicleFormValues) => {
+    if (duplicate) return;
     const externalId = uuidv4();
     const client = await addClientVehicles({
       clientId,
@@ -147,15 +165,24 @@ const ClientVehicleDialog = ({ clientId, open, onClose, onCreated }: ClientVehic
               <Controller name="color" control={control} render={({ field }) => <TextField {...field} fullWidth label="Color (opcional)" />} />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <Controller name="plate" control={control} render={({ field }) => <TextField {...field} fullWidth label="Placas (opcional)" />} />
+              <Controller name="plate" control={control} render={({ field }) => <TextField {...field} fullWidth label="Placas (opcional)" error={Boolean(duplicate)} helperText={duplicate ? 'Este cliente ya tiene un vehículo con estas placas.' : undefined} />} />
             </Grid>
             <Grid size={12}>
               <Controller name="comments" control={control} render={({ field }) => <TextField {...field} fullWidth multiline minRows={2} label="Comentarios del vehículo (opcional)" />} />
             </Grid>
           </Grid>
+          {duplicate && (
+            <Alert
+              severity="warning"
+              sx={{ mt: 2.5 }}
+              action={onCreated && <Button color="inherit" size="small" onClick={chooseDuplicate}>Usar ese vehículo</Button>}
+            >
+              Las placas {duplicate.plate} ya están registradas en {duplicateName} de este cliente. No se puede repetir el vehículo.
+            </Alert>
+          )}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
             <Button onClick={handleClose} disabled={isAddingVehicles}>Cancelar</Button>
-            <Button type="submit" variant="contained" disabled={isAddingVehicles}>
+            <Button type="submit" variant="contained" disabled={isAddingVehicles || Boolean(duplicate)}>
               {isAddingVehicles ? 'Guardando…' : 'Agregar vehículo'}
             </Button>
           </Box>

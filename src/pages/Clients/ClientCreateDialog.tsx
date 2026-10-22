@@ -1,6 +1,7 @@
 import { yupResolver } from '@hookform/resolvers/yup';
 import CloseIcon from '@mui/icons-material/Close';
 import {
+  Alert,
   Box,
   Button,
   Dialog,
@@ -10,17 +11,19 @@ import {
   IconButton,
   TextField,
 } from '@mui/material';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { v4 as uuidv4 } from 'uuid';
-import { useClientMutations } from '../../hooks/useClients';
+import { useClientMutations, useClients } from '../../hooks/useClients';
 import type { Client, ClientFormValues } from '../../types/client.types';
-import { clientSchema } from './clientSchemas';
+import { clientSchema, PHONE_DIGITS, phoneDigits } from './clientSchemas';
 import { PhoneField } from './PhoneField';
 
 interface ClientCreateDialogProps {
   open: boolean;
   onClose: () => void;
   onCreated: (client: Client) => void;
+  /** An already registered client found by phone; defaults to `onCreated`. */
+  onUseExisting?: (client: Client) => void;
 }
 
 const defaultValues: ClientFormValues = {
@@ -30,7 +33,7 @@ const defaultValues: ClientFormValues = {
   comments: '',
 };
 
-const ClientCreateDialog = ({ open, onClose, onCreated }: ClientCreateDialogProps) => {
+const ClientCreateDialog = ({ open, onClose, onCreated, onUseExisting }: ClientCreateDialogProps) => {
   const { createClient, isCreatingClient } = useClientMutations();
   const {
     control,
@@ -41,6 +44,15 @@ const ClientCreateDialog = ({ open, onClose, onCreated }: ClientCreateDialogProp
     resolver: yupResolver(clientSchema),
     defaultValues,
   });
+  // Detect a registered phone before saving instead of silently reusing that client.
+  const phone = phoneDigits(useWatch({ control, name: 'phoneNumber' }));
+  const lookup = useClients({ phone, limit: 1, offset: 0 }, open && phone.length === PHONE_DIGITS);
+  const existing = phone.length === PHONE_DIGITS ? lookup.data?.data[0] : undefined;
+
+  const chooseExisting = (client: Client) => {
+    reset(defaultValues);
+    (onUseExisting ?? onCreated)(client);
+  };
 
   const handleClose = () => {
     if (isCreatingClient) return;
@@ -127,11 +139,25 @@ const ClientCreateDialog = ({ open, onClose, onCreated }: ClientCreateDialogProp
               />
             </Grid>
           </Grid>
+          {existing && (
+            <Alert
+              severity="info"
+              sx={{ mt: 2.5 }}
+              action={<Button color="inherit" size="small" onClick={() => chooseExisting(existing)}>Usar este cliente</Button>}
+            >
+              Este celular ya está registrado a nombre de <strong>{existing.clientName}</strong>
+              {' '}({existing.vehicles.length === 1 ? '1 vehículo' : `${existing.vehicles.length} vehículos`}). Usa su expediente para no duplicarlo.
+            </Alert>
+          )}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
             <Button onClick={handleClose} disabled={isCreatingClient}>Cancelar</Button>
-            <Button type="submit" variant="contained" disabled={isCreatingClient}>
-              {isCreatingClient ? 'Guardando…' : 'Guardar cliente'}
-            </Button>
+            {existing ? (
+              <Button variant="contained" onClick={() => chooseExisting(existing)}>Usar este cliente</Button>
+            ) : (
+              <Button type="submit" variant="contained" disabled={isCreatingClient}>
+                {isCreatingClient ? 'Guardando…' : 'Guardar cliente'}
+              </Button>
+            )}
           </Box>
         </Box>
       </DialogContent>
