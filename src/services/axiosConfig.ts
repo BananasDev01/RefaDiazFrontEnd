@@ -1,5 +1,6 @@
 // src/services/axiosConfig.ts
-import axios, { type AxiosResponse, type AxiosError } from 'axios';
+import axios, { type AxiosResponse, type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { supabase } from './supabaseClient';
 
 interface CustomError extends Error {
   originalError?: unknown;
@@ -17,11 +18,30 @@ const axiosInstance = axios.create({
   },
 });
 
+// Keep the stored token in step with Supabase, which refreshes the session on its own.
+supabase.auth.onAuthStateChange((_event, session) => {
+  if (session?.access_token) localStorage.setItem('token', session.access_token);
+});
+
+/** Current access token: the live Supabase session (refreshed before it expires), else the stored one. */
+const currentAccessToken = async (): Promise<string | null> => {
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.access_token) return data.session.access_token;
+  } catch {
+    /* Fall back to the token stored at sign in. */
+  }
+  return localStorage.getItem('token');
+};
+
+type RetriableConfig = InternalAxiosRequestConfig & { _sessionRetried?: boolean };
+
 // --- Interceptor de Solicitud (Request) ---
 axiosInstance.interceptors.request.use(
-  (config) => {
-    // CORRECCIÓN: Se usa 'token' en lugar de 'authToken' para que coincida con AuthService.ts
-    const token = localStorage.getItem('token');
+  async (config) => {
+    // A retry after refreshing already carries the new token.
+    if ((config as RetriableConfig)._sessionRetried && config.headers.Authorization) return config;
+    const token = await currentAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -33,6 +53,29 @@ axiosInstance.interceptors.request.use(
   }
 );
 
+const SESSION_CLOSED = Symbol('session-closed');
+
+/**
+ * One refresh attempt before treating a 401 as a closed session. Errors of the
+ * retried request itself propagate as usual instead of signing the user out.
+ */
+const retryWithRefreshedSession = async (error: AxiosError): Promise<unknown> => {
+  const config = error.config as RetriableConfig | undefined;
+  if (!config || config._sessionRetried) return SESSION_CLOSED;
+  config._sessionRetried = true;
+  let token: string | undefined;
+  try {
+    const { data } = await supabase.auth.refreshSession();
+    token = data.session?.access_token;
+  } catch {
+    return SESSION_CLOSED;
+  }
+  if (!token) return SESSION_CLOSED;
+  localStorage.setItem('token', token);
+  config.headers.Authorization = `Bearer ${token}`;
+  return axiosInstance.request(config);
+};
+
 // --- Interceptor de Respuesta (Response) ---
 axiosInstance.interceptors.response.use(
   // Esta función se dispara para cualquier código de estado en el rango de 2xx
@@ -41,12 +84,16 @@ axiosInstance.interceptors.response.use(
     return response.data;
   },
   // Esta función se dispara para cualquier código de estado fuera del rango de 2xx
-  (error: AxiosError) => {
+  async (error: AxiosError) => {
     let formattedMessage = 'Ocurrió un error inesperado.';
     const statusCode = error.response?.status || 0;
     const errorData = error.response?.data as { message?: string; error?: string };
 
     if (statusCode === 401) {
+      // An expired access token is renewed transparently; only a dead session signs out.
+      const retried = await retryWithRefreshedSession(error);
+      if (retried !== SESSION_CLOSED) return retried;
+
       // CORRECCIÓN: Se usa 'token' en lugar de 'authToken' para limpiar el storage
       localStorage.removeItem('token');
       localStorage.removeItem('user');
