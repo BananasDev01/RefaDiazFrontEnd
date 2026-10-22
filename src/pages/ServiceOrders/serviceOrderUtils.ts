@@ -3,7 +3,7 @@ import type { ClientVehicle } from '../../types/client.types';
 
 export const IVA_RATE = 0.16;
 
-export type SearchField = 'folio' | 'phone' | 'plate';
+export type SearchField = 'folio' | 'phone' | 'q';
 export type IvaMode = 'none' | 'auto' | 'manual';
 
 const moneyFormatter = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -22,19 +22,19 @@ export const ivaModeFor = (taxAmount: number | null | undefined, subtotal: numbe
   return tax === toCents(computeIva(subtotal)) ? 'auto' : 'manual';
 };
 
-/** One search box: short numbers and provisional references are folios, long digit runs are phones, the rest plates. */
+/** One search box: short numbers and provisional references are folios, long digit runs are phones, the rest free words. */
 export const detectSearchField = (query: string): SearchField => {
   const text = query.trim();
   if (/^\d{1,6}$/.test(text) || /^(PEND|SER)\b/i.test(text)) return 'folio';
   const digits = text.replace(/[\s()+-]/g, '');
   if (/^\d{7,}$/.test(digits)) return 'phone';
-  return 'plate';
+  return 'q';
 };
 
 export const SEARCH_FIELD_LABELS: Record<SearchField, string> = {
   folio: 'folio',
   phone: 'celular',
-  plate: 'placas',
+  q: 'palabras',
 };
 
 const toLocalDate = (value: string) => new Date(`${value.slice(0, 10)}T12:00:00`);
@@ -72,6 +72,8 @@ export const snapshotVehicleName = (order: ServiceOrder) => [
   getSnapshotText(order.vehicleSnapshot, 'carModelName', 'car_model_name', 'model', 'modelName', 'modelo'),
   getSnapshotText(order.vehicleSnapshot, 'modelYear', 'model_year', 'year'),
 ].filter(Boolean).join(' ') || `Vehículo #${order.vehicleId}`;
+
+export const snapshotColor = (order: ServiceOrder) => getSnapshotText(order.vehicleSnapshot, 'color');
 
 export const snapshotPlate = (order: ServiceOrder) => getSnapshotText(order.vehicleSnapshot, 'plate', 'plates', 'placas');
 

@@ -46,7 +46,7 @@ describe('confianza en los datos de clientes', { timeout: 20_000 }, () => {
   it('impide repetir las placas de un vehículo del mismo cliente y ofrece usar el existente', async () => {
     const onCreated = vi.fn();
     wrap(<ClientVehicleDialog clientId={1} open onClose={vi.fn()} onCreated={onCreated} />);
-    const plate = screen.getByRole('textbox', { name: 'Placas (opcional)' });
+    const plate = screen.getByRole('textbox', { name: /^Placas/ });
     fireEvent.change(plate, { target: { value: 'rku-483 b' } });
     expect(await screen.findByText(/ya están registradas en Ford Lobo 2006/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Agregar vehículo' })).toBeDisabled();
@@ -56,7 +56,7 @@ describe('confianza en los datos de clientes', { timeout: 20_000 }, () => {
 
   it('permite placas repetibles como A LA MANO', async () => {
     wrap(<ClientVehicleDialog clientId={1} open onClose={vi.fn()} />);
-    fireEvent.change(screen.getByRole('textbox', { name: 'Placas (opcional)' }), { target: { value: 'A LA MANO' } });
+    fireEvent.change(screen.getByRole('textbox', { name: /^Placas/ }), { target: { value: 'A LA MANO' } });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Agregar vehículo' })).toBeEnabled());
     expect(screen.queryByText(/ya están registradas/)).not.toBeInTheDocument();
   });

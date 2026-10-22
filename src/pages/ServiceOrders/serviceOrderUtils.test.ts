@@ -14,8 +14,9 @@ describe('utilidades de órdenes de servicio', () => {
     expect(detectSearchField('PEND-SER-1A2B')).toBe('folio');
     expect(detectSearchField('812 504 9511')).toBe('phone');
     expect(detectSearchField('(81) 2504-9511')).toBe('phone');
-    expect(detectSearchField('RKU483B')).toBe('plate');
-    expect(detectSearchField('rku-483-b')).toBe('plate');
+    expect(detectSearchField('RKU483B')).toBe('q');
+    expect(detectSearchField('rku-483-b')).toBe('q');
+    expect(detectSearchField('nissan tsuru gris')).toBe('q');
   });
 
   it('calcula el 16 % en centavos', () => {

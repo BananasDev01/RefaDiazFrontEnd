@@ -150,6 +150,7 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
     days !== null && `${daysLabel(days)} en taller`,
     client?.clientName,
     vehicle && vehicleName(vehicle),
+    vehicle?.color,
   ].filter(Boolean).join(' · ');
 
   const syncState = autosave.error

@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { ReportedFailureType, ServiceOrder, ServiceOrderFormValues } from '../../types/serviceOrder.types';
 import { decodeServiceOrderLine, readServiceOrderLine } from './serviceOrderLineCodec';
-import { combinedAirPressureWarning, mergeObservations, sumLineAmounts } from './serviceOrderText';
+import { AIR_PRESSURE_WARNING, mergeObservations, sumLineAmounts } from './serviceOrderText';
 
 const WARRANTY_LEGAL_TEXT = 'Radiadores Díaz se obliga por esta garantía a reparar, reemplazar o cubrir únicamente el valor del producto en cuestión. En ningún caso cubrirá materiales, mano de obra o partes suministradas, ni daños incidentales o consecuenciales derivados de una garantía.';
 const localDate = () => {
@@ -33,7 +33,7 @@ export const createFormValues = (
   importantInformation: mergeObservations(order?.importantInformation,
     selectedFailures.length === 0 ? order?.authorizedWorkDescription : '',
     selectedFailures.length === 0 ? order?.vehicleOperationObservations : ''),
-  informationalNote: combinedAirPressureWarning(order?.informationalNote),
+  informationalNote: AIR_PRESSURE_WARNING,
   compressionLeakDetected: order?.compressionLeakDetected ?? false,
   coolingSystemAirPressureDetected: order?.coolingSystemAirPressureDetected ?? false,
   radiatorSerialNumber: order?.radiatorSerialNumber ?? '',

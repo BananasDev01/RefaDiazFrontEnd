@@ -13,16 +13,21 @@ import {
 } from '@react-pdf/renderer';
 import type { ReactNode } from 'react';
 import {
+  siAudi,
   siBmw,
   siChevrolet,
   siChrysler,
   siFord,
   siHonda,
+  siHyundai,
+  siKia,
   siNissan,
   siRenault,
+  siToyota,
   siVolkswagen,
+  type SimpleIcon,
 } from 'simple-icons';
-import { combinedAirPressureWarning, COMPRESSION_WARNING } from '../serviceOrderText';
+import { COMPRESSION_WARNING } from '../serviceOrderText';
 import type { ServiceOrderPdfData, ServiceOrderPdfFailure } from './serviceOrderPdfData';
 import { parseImportantNote } from '../importantNoteFormat';
 
@@ -63,10 +68,11 @@ const styles = StyleSheet.create({
   headerCenter: { width: '43%', alignItems: 'center', paddingHorizontal: 3 },
   slogan: { fontFamily: 'Helvetica-Bold', fontSize: 6.4, textAlign: 'center', lineHeight: 1.22 },
   specialists: { fontSize: 5.7, letterSpacing: 1.6, marginTop: 4 },
-  brandLogos: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
-  brandLogo: { width: 22, height: 20 },
-  chryslerLogo: { width: 39, height: 24 },
-  mercedesLogo: { width: 21, height: 20 },
+  brandLogos: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 3 },
+  brandLogo: { width: 20, height: 17 },
+  fordLogo: { width: 40, height: 15 },
+  chryslerLogo: { width: 60, height: 9.6 },
+  mercedesLogo: { width: 18, height: 17 },
   folioColumn: { width: '23%', alignItems: 'flex-end' },
   documentType: { fontSize: 5.5, letterSpacing: 0.9, color: MUTED },
   dateLabel: { fontSize: 5, color: MUTED, marginTop: 5 },
@@ -93,8 +99,8 @@ const styles = StyleSheet.create({
   diagnosticRows: {},
   diagnosticRow: { flexDirection: 'row', minHeight: 19 },
   failureCell: { width: '31%', flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 5, paddingVertical: 3, borderRightWidth: 0.8, borderRightColor: LINE, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
-  amountCell: { width: '14%', justifyContent: 'flex-end', flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 5, paddingVertical: 3, borderRightWidth: 0.8, borderRightColor: LINE, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
-  observationCell: { width: '55%', paddingHorizontal: 5, paddingVertical: 3, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
+  observationCell: { width: '55%', paddingHorizontal: 5, paddingVertical: 3, borderRightWidth: 0.8, borderRightColor: LINE, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
+  amountCell: { width: '14%', justifyContent: 'flex-end', flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 5, paddingVertical: 3, borderBottomWidth: 0.4, borderBottomColor: '#b6b8bc' },
   checkbox: { width: 7, height: 7, borderWidth: 0.7, borderColor: LINE, marginRight: 4, marginTop: 0.3, alignItems: 'center', justifyContent: 'center' },
   checkboxSelected: { borderColor: RED, backgroundColor: RED },
   checkboxMark: { fontFamily: 'Helvetica-Bold', fontSize: 5.5, color: PAPER },
@@ -132,7 +138,7 @@ const styles = StyleSheet.create({
   warrantyTitle: { fontFamily: 'Helvetica-Bold', color: RED, fontSize: 6, textAlign: 'center' },
   warrantyValue: { fontFamily: 'Helvetica-Bold', fontSize: 10, marginTop: 3 },
   legal: { fontFamily: 'Helvetica-Bold', fontSize: 4.8, lineHeight: 1.18, textAlign: 'center', paddingHorizontal: 7, marginTop: 4 },
-  receipt: { minHeight: 78, paddingHorizontal: 4 },
+  receipt: { paddingHorizontal: 4, paddingBottom: 4 },
   receiptHeader: { height: 23, flexDirection: 'row', alignItems: 'center' },
   receiptBrand: { width: '25%', fontFamily: 'Helvetica-Bold', fontSize: 8.5 },
   receiptTitle: { width: '50%', fontFamily: 'Helvetica-Bold', fontSize: 7.5, textAlign: 'center', letterSpacing: 0.45 },
@@ -169,13 +175,13 @@ const FailureRow = ({ failure }: { failure: ServiceOrderPdfFailure }) => (
         {failure.label.toUpperCase()}{failure.detail ? `: ${failure.detail}` : ''}
       </Text>
     </View>
+    <View style={styles.observationCell}>
+      <Text style={styles.observationText}>{failure.selected ? failure.observation || ' ' : ' '}</Text>
+    </View>
     <View style={styles.amountCell}>
       {failure.selected && failure.amount !== null && (
         <Text style={styles.lineAmount}>{money(failure.amount)}</Text>
       )}
-    </View>
-    <View style={styles.observationCell}>
-      <Text style={styles.observationText}>{failure.selected ? failure.observation || ' ' : ' '}</Text>
     </View>
   </View>
 );
@@ -187,15 +193,13 @@ const Warning = ({ checked, children }: { checked: boolean; children: ReactNode 
   </View>
 );
 
-const brandIconsBeforeChrysler = [siFord, siNissan];
+const BrandIcon = ({ icon, style = styles.brandLogo, viewBox = '0 0 24 24' }: { icon: SimpleIcon; style?: typeof styles.brandLogo; viewBox?: string }) => (
+  <Svg viewBox={viewBox} style={style}>
+    <Path d={icon.path} fill={INK} />
+  </Svg>
+);
 
-const brandIconsAfterChrysler = [
-  siVolkswagen,
-  siRenault,
-  siChevrolet,
-  siHonda,
-  siBmw,
-];
+const brandIconsSecondRow = [siKia, siHyundai, siRenault, siBmw, siAudi];
 
 const MercedesLogo = () => (
   <Svg viewBox="0 0 24 24" style={styles.mercedesLogo}>
@@ -207,22 +211,22 @@ const MercedesLogo = () => (
 );
 
 const BrandLogoRow = () => (
-  <View style={styles.brandLogos}>
-    {brandIconsBeforeChrysler.map((icon) => (
-      <Svg key={icon.slug} viewBox="0 0 24 24" style={styles.brandLogo}>
-        <Path d={icon.path} fill={INK} />
-      </Svg>
-    ))}
-    <Svg viewBox="0 0 24 24" style={styles.chryslerLogo}>
-      <Path d={siChrysler.path} fill={INK} />
-    </Svg>
-    {brandIconsAfterChrysler.map((icon) => (
-      <Svg key={icon.slug} viewBox="0 0 24 24" style={styles.brandLogo}>
-        <Path d={icon.path} fill={INK} />
-      </Svg>
-    ))}
-    <MercedesLogo />
-  </View>
+  <>
+    <View style={styles.brandLogos}>
+      {/* Ford and Chrysler are wide wordmarks: crop the square icon box to the drawing so they read at the same weight. */}
+      <BrandIcon icon={siFord} style={styles.fordLogo} viewBox="0 7.5 24 9" />
+      <BrandIcon icon={siNissan} />
+      <BrandIcon icon={siChrysler} style={styles.chryslerLogo} viewBox="0 10.05 24 3.9" />
+      <BrandIcon icon={siChevrolet} />
+      <BrandIcon icon={siToyota} />
+      <BrandIcon icon={siHonda} />
+      <BrandIcon icon={siVolkswagen} />
+    </View>
+    <View style={[styles.brandLogos, { paddingHorizontal: 10 }]}>
+      {brandIconsSecondRow.map((icon) => <BrandIcon key={icon.slug} icon={icon} />)}
+      <MercedesLogo />
+    </View>
+  </>
 );
 
 export type ServiceOrderPdfKind = 'order' | 'receipt';
@@ -253,7 +257,7 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
         {kind === 'order' && <Text fixed style={{ position: 'absolute', top: 24, left: 28, right: 28, fontSize: 6, color: MUTED }} render={({ pageNumber }) => pageNumber > 1 ? `ORDEN ${data.folio} - CONTINUACIÓN` : ''} />}
         {/* Keep the decorative border outside flowing content: a split min-height
             frame can otherwise generate an empty trailing page. */}
-        <View style={kind === 'receipt' ? [styles.frame, { minHeight: 120 }] : { paddingHorizontal: 10.25 }}>
+        <View style={kind === 'receipt' ? [styles.frame, { minHeight: 0 }] : { paddingHorizontal: 10.25 }}>
           {kind === 'order' && <>
           <View style={styles.header} wrap={false}>
             <View style={styles.logoColumn}>
@@ -297,11 +301,11 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
               <View style={[styles.columnHeader, { width: '31%' }]}>
                 <Text style={styles.columnHeaderText}>FALLAS REPORTADAS</Text>
               </View>
-              <View style={[styles.columnHeader, { width: '14%' }]}>
-                <Text style={styles.columnHeaderText}>COSTO</Text>
-              </View>
-              <View style={[styles.columnHeaderLast, { width: '55%' }]}>
+              <View style={[styles.columnHeader, { width: '55%' }]}>
                 <Text style={styles.columnHeaderText}>OBSERVACIONES DEL FUNCIONAMIENTO O{`\n`}FALLAS DEL AUTOMÓVIL</Text>
+              </View>
+              <View style={[styles.columnHeaderLast, { width: '14%' }]}>
+                <Text style={styles.columnHeaderText}>COSTO</Text>
               </View>
             </View>
             <View style={styles.diagnosticRows}>
@@ -309,7 +313,7 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
               <View style={styles.technicalWarnings} wrap={false}>
                 <View style={styles.warningCell}>
                   <Warning checked={data.compressionLeakDetected}>{COMPRESSION_WARNING.toLocaleUpperCase('es-MX')}</Warning>
-                  <Warning checked={data.coolingSystemAirPressureDetected}>{combinedAirPressureWarning(data.informationalNote).toLocaleUpperCase('es-MX')}</Warning>
+                  <Warning checked={data.coolingSystemAirPressureDetected}>{data.informationalNote.toLocaleUpperCase('es-MX')}</Warning>
                 </View>
               </View>
             </View>
@@ -381,23 +385,19 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
           <View style={styles.receipt}>
             <View style={styles.receiptHeader}>
               <Text style={styles.receiptBrand}>RADIADORES DÍAZ</Text>
-              <Text style={styles.receiptTitle}>COMPROBANTE DE SERVICIO Y GARANTÍA</Text>
+              <Text style={styles.receiptTitle}>COMPROBANTE DE RECEPCIÓN</Text>
               <Text style={styles.receiptFolio}>N° {data.folio}</Text>
             </View>
             <View style={styles.receiptFields}>
               <View style={styles.fieldRow}>
-                <InlineField label="CLIENTE" value={data.clientName} width="65%" />
-                <InlineField label="TEL." value={data.phoneNumber} width="35%" />
+                <InlineField label="CLIENTE" value={data.clientName} width="48%" />
+                <InlineField label="TEL." value={data.phoneNumber} width="27%" />
+                <InlineField label="FECHA" value={data.serviceDate} width="25%" />
               </View>
               <View style={styles.fieldRow}>
-                <InlineField label="VEHÍCULO" value={vehicleName} width="45%" />
-                <InlineField label="COLOR" value={data.color} width="23%" />
-                <InlineField label="PLACAS" value={data.plate} width="32%" />
-              </View>
-              <View style={styles.fieldRow}>
-                <InlineField label="GARANTÍA" value={warrantyLabel} width="36%" />
-                <InlineField label="FECHA" value={data.serviceDate} width="28%" />
-                <InlineField label="TOTAL" value={money(data.total)} width="36%" />
+                <InlineField label="VEHÍCULO" value={vehicleName} width="48%" />
+                <InlineField label="COLOR" value={data.color} width="22%" />
+                <InlineField label="PLACAS" value={data.plate} width="30%" />
               </View>
             </View>
           </View>

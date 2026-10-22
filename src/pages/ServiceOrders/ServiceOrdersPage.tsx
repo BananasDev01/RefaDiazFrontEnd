@@ -33,6 +33,7 @@ import {
   SEARCH_FIELD_LABELS,
   snapshotClientName,
   snapshotPhones,
+  snapshotColor,
   snapshotPlate,
   snapshotVehicleName,
 } from './serviceOrderUtils';
@@ -186,7 +187,7 @@ export const ServiceOrdersPage = () => {
           <TextField
             value={query}
             onChange={(event) => update({ q: event.target.value })}
-            placeholder="Folio, celular o placas"
+            placeholder="Folio, celular, placas, vehículo, color o falla"
             slotProps={{
               htmlInput: { 'aria-label': 'Buscar órdenes' },
               input: {
@@ -266,6 +267,7 @@ export const ServiceOrdersPage = () => {
                     <Box component="span" sx={{ minWidth: 0 }}>
                       <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box component="span" sx={{ fontWeight: 500 }}>{snapshotVehicleName(order)}</Box>
+                        {snapshotColor(order) && <Box component="span" sx={{ color: tone.muted, fontSize: 13 }}>{snapshotColor(order)}</Box>}
                         <PlateBadge plate={snapshotPlate(order)} size="sm" />
                       </Box>
                       <Box component="span" sx={{ display: 'block', color: tone.faint, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
