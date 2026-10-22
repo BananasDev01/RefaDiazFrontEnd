@@ -124,7 +124,7 @@ describe('editor de órdenes', { timeout: 20_000 }, () => {
 
   it('un borrador se inicia con la acción principal', () => {
     renderEditor({ order: { ...order, status: 'DRAFT' } });
-    expect(screen.getByRole('button', { name: 'Iniciar orden' })).toHaveAttribute('type', 'submit');
+    expect(screen.getByRole('button', { name: 'Pasar a taller' })).toHaveAttribute('type', 'submit');
     expect(screen.getByRole('button', { name: 'Descartar borrador' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Completar y entregar' })).not.toBeInTheDocument();
   });

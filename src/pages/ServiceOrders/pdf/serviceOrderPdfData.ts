@@ -171,11 +171,6 @@ export const mapServiceOrderToPdfData = (
       });
     });
 
-  const selectedFailureSummary = failures
-    .filter((failure) => failure.selected)
-    .map((failure) => failure.detail || failure.label)
-    .join(', ');
-
   return {
     folio: order.folioNumber
       ? String(order.folioNumber).padStart(4, '0')
@@ -183,7 +178,8 @@ export const mapServiceOrderToPdfData = (
     serviceDate: formatDate(order.serviceDate),
     clientName: getSnapshotText(order.clientSnapshot, 'clientName', 'client_name', 'name', 'nombre') ?? '',
     phoneNumber: [getSnapshotText(order.clientSnapshot, 'phoneNumber', 'phone_number', 'phone', 'telefono'), getSnapshotText(order.clientSnapshot, 'secondaryPhoneNumber', 'secondary_phone_number')].filter(Boolean).join(' / '),
-    reportedFailureSummary: order.reportedFailureSummary?.trim() || selectedFailureSummary,
+    // FALLA prints only what the customer reported; the selected lines already list the work.
+    reportedFailureSummary: order.reportedFailureSummary?.trim() ?? '',
     brand: getSnapshotText(vehicle, 'brand', 'brandName', 'brand_name', 'marca')
       ?? nestedSnapshotText(vehicle, 'carModel', 'brandName', 'brand_name')
       ?? nestedSnapshotText(asRecord(vehicle.carModel), 'brand', 'name')

@@ -7,6 +7,7 @@ import { computeIva, formatMoney, ivaModeFor, toCents, type IvaMode } from '../s
 import { SectionCard } from '../ui';
 import { tone } from '../tokens';
 import { PrintableDocuments } from './PrintableDocuments';
+import type { PdfActions } from './usePdfDocuments';
 import { SignedDocuments } from './SignedDocuments';
 import { useTotals } from './useFormSelector';
 
@@ -112,9 +113,10 @@ interface SummaryAsideProps {
   busy: boolean;
   onRequestTransition: (transition: 'complete' | 'cancel') => void;
   canDiscardLocal: boolean;
+  pdf: PdfActions;
 }
 
-export const SummaryAside = memo(({ order, failureTypes, readOnly, synced, busy, onRequestTransition, canDiscardLocal }: SummaryAsideProps) => {
+export const SummaryAside = memo(({ order, failureTypes, readOnly, synced, busy, onRequestTransition, canDiscardLocal, pdf }: SummaryAsideProps) => {
   const closed = order?.status === 'COMPLETED' || order?.status === 'CANCELLED';
   return (
     <Stack spacing={2}>
@@ -123,7 +125,7 @@ export const SummaryAside = memo(({ order, failureTypes, readOnly, synced, busy,
       <SectionCard id="so-documentos" title="Documentos">
         {order ? (
           <Stack spacing={1.25}>
-            <PrintableDocuments order={order} failureTypes={failureTypes} disabled={!synced || busy} />
+            <PrintableDocuments pdf={pdf} disabled={!synced || busy} />
             {!synced && <Typography sx={{ fontSize: 12, color: tone.faint }}>Guarda los cambios para imprimir la versión actual.</Typography>}
             <SignedDocuments order={order} disabled={!synced || busy} />
           </Stack>
@@ -152,7 +154,7 @@ export const SummaryAside = memo(({ order, failureTypes, readOnly, synced, busy,
         {(order?.status === 'DRAFT' || (!order && canDiscardLocal)) && (
           <Stack spacing={1.25}>
             <Typography sx={{ color: tone.faint, fontSize: 14 }}>
-              {order ? 'Borrador guardado. Inicia la orden cuando el cliente autorice el trabajo.' : 'Captura guardada solo en este equipo hasta elegir cliente y vehículo.'}
+              {order ? 'Borrador guardado. Usa «Pasar a taller» cuando el cliente autorice el trabajo; ahí aparece en la pestaña En taller.' : 'Captura guardada solo en este equipo hasta elegir cliente y vehículo.'}
             </Typography>
             <Button disabled={busy} onClick={() => onRequestTransition('cancel')} sx={{ color: tone.danger }}>Descartar borrador</Button>
           </Stack>

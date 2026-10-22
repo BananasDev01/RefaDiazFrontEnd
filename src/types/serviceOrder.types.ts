@@ -42,7 +42,7 @@ export interface ServiceOrderFormValues {
 
 export const SERVICE_ORDER_STATUS_LABELS: Record<ServiceOrderStatus, string> = {
   DRAFT: 'Borrador',
-  IN_PROGRESS: 'En progreso',
+  IN_PROGRESS: 'En taller',
   COMPLETED: 'Completada',
   CANCELLED: 'Cancelada',
 };

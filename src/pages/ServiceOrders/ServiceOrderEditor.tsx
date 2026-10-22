@@ -3,6 +3,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import CloudOffOutlinedIcon from '@mui/icons-material/CloudOffOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
+import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined';
 import {
   Alert,
@@ -13,6 +14,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useCallback, useRef, useState } from 'react';
@@ -30,6 +32,7 @@ import { ConditionsSection } from './editor/ConditionsSection';
 import { DiagnosisSection } from './editor/DiagnosisSection';
 import { ReceptionSection } from './editor/ReceptionSection';
 import { SummaryAside } from './editor/SummaryAside';
+import { usePdfDocuments } from './editor/usePdfDocuments';
 import { daysLabel, daysSince, folioLabel, formatMoney, formatShortDate, vehicleName } from './serviceOrderUtils';
 import { useTotals } from './editor/useFormSelector';
 import { PageCanvas, PageContainer, StatusPill } from './ui';
@@ -92,6 +95,8 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
   const editsExplicitly = order?.status === 'IN_PROGRESS' || order?.status === 'COMPLETED';
   const readOnly = isClosed || isTransitioning || isSubmitting;
   const busy = autosave.busy || isTransitioning;
+  const pdfDisabled = !autosave.synced || busy;
+  const pdf = usePdfDocuments(order, failureTypes, pdfDisabled);
   const clientId = useWatch({ control, name: 'clientId' });
   const clientVehicleId = useWatch({ control, name: 'clientVehicleId' });
   const serviceDate = useWatch({ control, name: 'serviceDate' });
@@ -157,7 +162,7 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
           ? { tone: tone.faint, icon: null, text: 'Se guarda sola mientras capturas' }
           : { tone: tone.warnInk, icon: null, text: autosave.status || 'Cambios sin guardar' };
 
-  const primaryLabel = editsExplicitly ? 'Guardar cambios' : 'Iniciar orden';
+  const primaryLabel = editsExplicitly ? 'Guardar cambios' : 'Pasar a taller';
 
   return (
     <FormProvider {...methods}>
@@ -178,6 +183,15 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
                 </Box>
                 {subtitle && <Typography sx={{ color: tone.faint, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</Typography>}
               </Box>
+              {order && (
+                <Tooltip title={pdfDisabled ? 'Se habilita en cuanto la captura queda guardada.' : 'Comprobante para entregar al cliente al recibir el vehículo'}>
+                  <span>
+                    <Button variant="outlined" startIcon={<PrintOutlinedIcon />} disabled={pdfDisabled} onClick={() => pdf.actions.open('receipt')} sx={{ height: 40, borderRadius: 2, whiteSpace: 'nowrap' }}>
+                      Imprimir comprobante
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
               <HeaderTotal divider={!isClosed} />
               {!isClosed && (
                 <>
@@ -238,12 +252,14 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
                   busy={busy}
                   canDiscardLocal={isDirty || autosave.recovered}
                   onRequestTransition={requestTransition}
+                  pdf={pdf.actions}
                 />
               </Box>
             </Box>
           </PageContainer>
         </Box>
 
+        {pdf.dialog}
         <Dialog open={transition !== null} onClose={() => !busy && setTransition(null)} maxWidth="xs" fullWidth>
           <DialogTitle>{transition === 'complete' ? 'Completar y entregar' : order?.status === 'IN_PROGRESS' ? 'Cancelar orden' : 'Descartar borrador'}</DialogTitle>
           <DialogContent>
