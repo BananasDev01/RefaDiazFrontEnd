@@ -15,6 +15,7 @@ const order: ServiceOrder = {
   folioSeries: 'SER',
   folioNumber: 42,
   status: 'IN_PROGRESS',
+  category: 'VEHICLE',
   serviceDate: '2026-08-21',
   clientVehicleId: 1,
   clientId: 1,

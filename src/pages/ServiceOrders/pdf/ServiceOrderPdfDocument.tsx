@@ -289,10 +289,16 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
               <InlineField label="FALLA" value={data.reportedFailureSummary} width="100%" lines={2} />
             </View>
             <View style={styles.fieldRow}>
-              <InlineField label="MARCA" value={data.brand} width="22%" />
-              <InlineField label="MODELO / AÑO" value={[data.model, data.modelYear].filter(Boolean).join(' ')} width="28%" />
-              <InlineField label="COLOR" value={data.color} width="20%" />
-              <InlineField label="PLACAS" value={data.plate} width="30%" />
+              {data.isPart ? (
+                <InlineField label="DESCRIPCIÓN DE LA PIEZA" value={data.partDescription} width="100%" />
+              ) : (
+                <>
+                  <InlineField label="MARCA" value={data.brand} width="22%" />
+                  <InlineField label="MODELO / AÑO" value={[data.model, data.modelYear].filter(Boolean).join(' ')} width="28%" />
+                  <InlineField label="COLOR" value={data.color} width="20%" />
+                  <InlineField label="PLACAS" value={data.plate} width="30%" />
+                </>
+              )}
             </View>
           </View>
 
@@ -302,7 +308,7 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
                 <Text style={styles.columnHeaderText}>FALLAS REPORTADAS</Text>
               </View>
               <View style={[styles.columnHeader, { width: '55%' }]}>
-                <Text style={styles.columnHeaderText}>OBSERVACIONES DEL FUNCIONAMIENTO O{`\n`}FALLAS DEL AUTOMÓVIL</Text>
+                <Text style={styles.columnHeaderText}>{data.isPart ? 'OBSERVACIONES DE LA PIEZA' : <>OBSERVACIONES DEL FUNCIONAMIENTO O{`\n`}FALLAS DEL AUTOMÓVIL</>}</Text>
               </View>
               <View style={[styles.columnHeaderLast, { width: '14%' }]}>
                 <Text style={styles.columnHeaderText}>COSTO</Text>
@@ -310,12 +316,15 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
             </View>
             <View style={styles.diagnosticRows}>
               {data.failures.map((failure, index) => <FailureRow key={`${failure.label}-${index}`} failure={failure} />)}
-              <View style={styles.technicalWarnings} wrap={false}>
-                <View style={styles.warningCell}>
-                  <Warning checked={data.compressionLeakDetected}>{COMPRESSION_WARNING.toLocaleUpperCase('es-MX')}</Warning>
-                  <Warning checked={data.coolingSystemAirPressureDetected}>{data.informationalNote.toLocaleUpperCase('es-MX')}</Warning>
+              {/* Engine warnings only apply to a vehicle in the shop. */}
+              {!data.isPart && (
+                <View style={styles.technicalWarnings} wrap={false}>
+                  <View style={styles.warningCell}>
+                    <Warning checked={data.compressionLeakDetected}>{COMPRESSION_WARNING.toLocaleUpperCase('es-MX')}</Warning>
+                    <Warning checked={data.coolingSystemAirPressureDetected}>{data.informationalNote.toLocaleUpperCase('es-MX')}</Warning>
+                  </View>
                 </View>
-              </View>
+              )}
             </View>
           </View>
 
@@ -395,9 +404,15 @@ export const ServiceOrderPdfDocument = ({ data, logoSource, kind = 'order' }: Se
                 <InlineField label="FECHA" value={data.serviceDate} width="25%" />
               </View>
               <View style={styles.fieldRow}>
-                <InlineField label="VEHÍCULO" value={vehicleName} width="48%" />
-                <InlineField label="COLOR" value={data.color} width="22%" />
-                <InlineField label="PLACAS" value={data.plate} width="30%" />
+                {data.isPart ? (
+                  <InlineField label="PIEZA" value={data.partDescription} width="100%" />
+                ) : (
+                  <>
+                    <InlineField label="VEHÍCULO" value={vehicleName} width="48%" />
+                    <InlineField label="COLOR" value={data.color} width="22%" />
+                    <InlineField label="PLACAS" value={data.plate} width="30%" />
+                  </>
+                )}
               </View>
             </View>
           </View>

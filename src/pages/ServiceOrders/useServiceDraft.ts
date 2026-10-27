@@ -17,7 +17,8 @@ const isClosed = (order?: ServiceOrder) => order?.status === 'CANCELLED';
 
 /**
  * Local checkpoint for each burst of edits (first change immediately, the rest
- * once typing pauses); serialized, versioned server writes after idle.
+ * once typing pauses); server writes are explicit, serialized and versioned.
+ * There are no server drafts: an order exists once the operator creates it.
  */
 export function useServiceDraft(key: string, externalId: string, form: UseFormReturn<ServiceOrderFormValues>, initialOrder: ServiceOrder | undefined, types: ReportedFailureType[]) {
   const queryClient = useQueryClient();
@@ -31,7 +32,7 @@ export function useServiceDraft(key: string, externalId: string, form: UseFormRe
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [revision, setRevision] = useState(0);
+  const [, setRevision] = useState(0);
   const active = useRef(true);
   const queue = useRef<Promise<ServiceOrder> | null>(null);
   const acknowledged = useRef(recovered.current?.syncedValues ?? (initialOrder ? JSON.stringify(form.getValues()) : ''));
@@ -128,7 +129,7 @@ export function useServiceDraft(key: string, externalId: string, form: UseFormRe
           // The first POST may have succeeded before the connection was lost.
           // Preserve that record, then explicitly update its recovered draft only.
           const comparable = (value: ReturnType<typeof buildWriteFields>) => JSON.stringify({ ...value, internalNotes: [], reportedFailures: value.reportedFailures.map((row) => ({ reportedFailureTypeId: row.reportedFailureTypeId, otherText: row.otherText, amount: row.amount, observation: row.observation })) });
-          if (saved.status !== 'DRAFT' || comparable(fields) !== comparable(buildWriteFields(createFormValues(types, saved), types))) {
+          if (comparable(fields) !== comparable(buildWriteFields(createFormValues(types, saved), types))) {
             server.current = saved;
             checkpointRef.current();
             throw Object.assign(new Error('Existe una versión guardada diferente. Tu captura local se conserva; revisa la orden antes de sobrescribirla.'), { statusCode: 409 });
@@ -158,17 +159,6 @@ export function useServiceDraft(key: string, externalId: string, form: UseFormRe
       throw failure;
     } finally { queue.current = null; if (active.current) setBusy(false); }
   };
-  const saveRef = useRef(save); saveRef.current = save;
-
-  useEffect(() => {
-    if ((!revision && !recovered.current) || busy || conflict.current || (server.current && server.current.status !== 'DRAFT')) return;
-    const timer = window.setTimeout(async () => {
-      if (!active.current || !await serviceOrderSchema.isValid(form.getValues())) return;
-      if (JSON.stringify(form.getValues()) === acknowledged.current) return;
-      void saveRef.current().catch(() => undefined);
-    }, error ? 15000 : 1200);
-    return () => window.clearTimeout(timer);
-  }, [revision, busy, form, error]);
 
   const acceptTransition = (next: ServiceOrder) => {
     server.current = next; setOrder(next); setError(null);

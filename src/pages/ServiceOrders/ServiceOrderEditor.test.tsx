@@ -23,6 +23,7 @@ const order: ServiceOrder = {
   folioSeries: 'SER',
   folioNumber: 4861,
   status: 'IN_PROGRESS',
+  category: 'VEHICLE',
   serviceDate: '2026-10-01',
   clientVehicleId: 11,
   clientId: 1,
@@ -122,11 +123,36 @@ describe('editor de órdenes', { timeout: 20_000 }, () => {
     expect(screen.getAllByRole('textbox', { name: 'Costo de Otros' })).toHaveLength(2);
   });
 
-  it('un borrador se inicia con la acción principal', () => {
-    renderEditor({ order: { ...order, status: 'DRAFT' } });
-    expect(screen.getByRole('button', { name: 'Pasar a taller' })).toHaveAttribute('type', 'submit');
-    expect(screen.getByRole('button', { name: 'Descartar borrador' })).toBeInTheDocument();
+  it('una captura nueva se crea con «Crear orden» y no hay borradores', () => {
+    renderEditor({ order: undefined, draftId: 'b0d8c6a2-6f37-4d7d-9a35-31b2c1f0a222', initialClientId: 1, initialVehicleId: 11 });
+    expect(screen.getByRole('button', { name: 'Crear orden' })).toHaveAttribute('type', 'submit');
+    expect(screen.queryByRole('button', { name: 'Pasar a taller' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Completar y entregar' })).not.toBeInTheDocument();
+  });
+
+  it('una orden de pieza pide descripción y oculta las advertencias del motor', () => {
+    renderEditor({ order: { ...order, category: 'PART', partDescription: 'Radiador de Tsuru 2004', clientVehicleId: null, vehicleId: null } });
+    expect(screen.getByRole('textbox', { name: 'Descripción de la pieza' })).toHaveValue('Radiador de Tsuru 2004');
+    expect(screen.getByRole('button', { name: /Pieza/, pressed: true })).toBeInTheDocument();
+    expect(screen.queryByText('Advertencias para el cliente')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Condiciones de la pieza' })).toBeInTheDocument();
+  });
+
+  it('cambiar a pieza quita el vehículo sin perder lo capturado', () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: /Pieza/ }));
+    expect(screen.getByRole('textbox', { name: 'Descripción de la pieza' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'Observaciones de Servicio radiador' })).toHaveValue('Lavado y prueba de presión.');
+  });
+
+  it('eliminar una orden pide el motivo', async () => {
+    renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar orden' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Eliminar orden' });
+    const confirm = within(dialog).getByRole('button', { name: 'Eliminar' });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(within(dialog).getByRole('textbox', { name: /Motivo/ }), { target: { value: 'Capturada por error' } });
+    expect(confirm).toBeEnabled();
   });
 
   it('completar pide confirmación', async () => {
@@ -147,7 +173,7 @@ describe('editor de órdenes', { timeout: 20_000 }, () => {
     expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeEnabled();
   });
 
-  it('una orden cancelada queda en solo lectura con sus documentos', () => {
+  it('una orden eliminada queda en solo lectura con sus documentos', () => {
     renderEditor({ order: { ...order, status: 'CANCELLED' } });
     expect(screen.queryByRole('button', { name: 'Guardar cambios' })).not.toBeInTheDocument();
     expect(screen.getByText(/solo lectura/)).toBeInTheDocument();

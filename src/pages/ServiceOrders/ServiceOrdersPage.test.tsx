@@ -16,6 +16,7 @@ const order = {
   folioSeries: 'SER',
   folioNumber: 4861,
   status: 'IN_PROGRESS',
+  category: 'VEHICLE',
   serviceDate: '2026-10-01',
   clientVehicleId: 11,
   clientId: 1,
@@ -52,12 +53,27 @@ describe('listado de órdenes', () => {
     </QueryClientProvider>
   );
 
-  it('muestra las órdenes en taller con folio, placas y enlace a la orden', async () => {
+  it('muestra las órdenes en progreso con folio, placas y enlace a la orden', async () => {
     renderList();
     const row = await screen.findByRole('link', { name: /4861/ });
     expect(row).toHaveAttribute('href', expect.stringContaining('/service-orders/6bf739bd-6caf-4470-9900-a5a99f8e39e4'));
     expect(screen.getByLabelText('Placas RKU483B')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /En taller/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: /En progreso/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.replace(/[\d…]/g, ''))).toEqual(['En progreso', 'Completadas']);
+  });
+
+  it('filtra por piezas y muestra su descripción en lugar del vehículo', async () => {
+    server.use(http.get(`${apiBaseUrl}/services`, ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      requests.push(params);
+      const part = { ...order, category: 'PART' as const, partDescription: 'Radiador de Tsuru 2004', clientVehicleId: null, vehicleId: null, vehicleSnapshot: {} };
+      return HttpResponse.json({ data: params.get('limit') === '1' ? [] : [part], pagination: { limit: 20, offset: 0, total: 1 } });
+    }));
+    renderList();
+    fireEvent.click(await screen.findByRole('button', { name: /Piezas/ }));
+    await waitFor(() => expect(requests.some((params) => params.get('category') === 'PART')).toBe(true));
+    expect(await screen.findByText('Radiador de Tsuru 2004')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Placas/)).not.toBeInTheDocument();
   });
 
   it('una sola caja busca por celular cuando escribes un teléfono', async () => {

@@ -9,7 +9,7 @@ const types: ReportedFailureType[] = [
 ];
 const order: ServiceOrder = {
   id: 1, externalId: 'old-order', provisionalReference: 'OLD-1', folioSeries: 'SER',
-  status: 'DRAFT', serviceDate: '2026-09-10', clientVehicleId: 1, clientId: 1, vehicleId: 1,
+  status: 'IN_PROGRESS', category: 'VEHICLE', serviceDate: '2026-09-10', clientVehicleId: 1, clientId: 1, vehicleId: 1,
   compressionLeakDetected: false, subtotal: 1000, taxAmount: 160, total: 1160,
   reportedFailureSummary: 'Depósito con sarro', clientSnapshot: {}, vehicleSnapshot: {}, legalTextSnapshot: {},
   version: 1, items: [], reportedFailures: types.map((type) => ({

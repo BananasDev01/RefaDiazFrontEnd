@@ -26,7 +26,8 @@ const createOrder = (overrides: Partial<ServiceOrder> = {}): ServiceOrder => ({
   provisionalReference: 'PEND-SER-07D1E37F',
   folioSeries: 'SER',
   folioNumber: 5001,
-  status: 'DRAFT',
+  status: 'IN_PROGRESS',
+  category: 'VEHICLE',
   serviceDate: '2026-08-20',
   clientVehicleId: 11,
   clientId: 1,
@@ -108,7 +109,7 @@ describe('hooks de órdenes de servicio', () => {
     expect(detail.result.current.data?.total).toBe(1160);
   });
 
-  it('actualiza, inicia y completa usando la nueva versión en cada transición', async () => {
+  it('actualiza y completa usando la nueva versión en cada transición', async () => {
     const expectedVersions: number[] = [];
     server.use(
       http.put(`${apiBaseUrl}/services/:externalId`, async ({ request }) => {
@@ -116,15 +117,10 @@ describe('hooks de órdenes de servicio', () => {
         expectedVersions.push(payload.expectedVersion);
         return HttpResponse.json(createOrder({ version: 2, importantInformation: 'Revisar en una semana' }));
       }),
-      http.post(`${apiBaseUrl}/services/:externalId/start`, async ({ request }) => {
-        const payload = await request.json() as { expectedVersion: number };
-        expectedVersions.push(payload.expectedVersion);
-        return HttpResponse.json(createOrder({ version: 3, status: 'IN_PROGRESS' }));
-      }),
       http.post(`${apiBaseUrl}/services/:externalId/complete`, async ({ request }) => {
         const payload = await request.json() as { expectedVersion: number };
         expectedVersions.push(payload.expectedVersion);
-        return HttpResponse.json(createOrder({ version: 4, status: 'COMPLETED' }));
+        return HttpResponse.json(createOrder({ version: 3, status: 'COMPLETED' }));
       })
     );
     const mutation = renderHook(() => useServiceOrderMutations(), { wrapper });
@@ -143,22 +139,18 @@ describe('hooks de órdenes de servicio', () => {
           taxAmount: 160,
         },
       });
-      updated = await mutation.result.current.startServiceOrder({
-        externalId: orderExternalId,
-        expectedVersion: updated.version,
-      });
       await mutation.result.current.completeServiceOrder({
         externalId: orderExternalId,
         expectedVersion: updated.version,
       });
     });
 
-    expect(expectedVersions).toEqual([1, 2, 3]);
+    expect(expectedVersions).toEqual([1, 2]);
     expect(queryClient.getQueryData<ServiceOrder>(['service-orders', 'detail', orderExternalId])?.status).toBe('COMPLETED');
   });
 
   it('obtiene el total de órdenes para cada estado', async () => {
-    const totals = { DRAFT: 2, IN_PROGRESS: 4, COMPLETED: 11, CANCELLED: 1 };
+    const totals = { IN_PROGRESS: 4, COMPLETED: 11 };
     server.use(
       http.get(`${apiBaseUrl}/services`, ({ request }) => {
         const status = new URL(request.url).searchParams.get('status') as keyof typeof totals;
@@ -170,7 +162,7 @@ describe('hooks de órdenes de servicio', () => {
     );
 
     const { result } = renderHook(() => useServiceOrderStatusCounts(), { wrapper });
-    await waitFor(() => expect(result.current.CANCELLED).toBe(1));
+    await waitFor(() => expect(result.current.COMPLETED).toBe(11));
 
     expect(result.current).toEqual(totals);
   });

@@ -111,7 +111,7 @@ interface SummaryAsideProps {
   readOnly: boolean;
   synced: boolean;
   busy: boolean;
-  onRequestTransition: (transition: 'complete' | 'cancel') => void;
+  onRequestTransition: (transition: 'complete' | 'delete') => void;
   canDiscardLocal: boolean;
   pdf: PdfActions;
 }
@@ -148,24 +148,26 @@ export const SummaryAside = memo(({ order, failureTypes, readOnly, synced, busy,
             >
               Completar y entregar
             </Button>
-            <Button disabled={busy} onClick={() => onRequestTransition('cancel')} sx={{ color: tone.danger }}>Cancelar orden</Button>
+            <Button disabled={busy} onClick={() => onRequestTransition('delete')} sx={{ color: tone.danger }}>Eliminar orden</Button>
           </Stack>
         )}
-        {(order?.status === 'DRAFT' || (!order && canDiscardLocal)) && (
+        {!order && (
           <Stack spacing={1.25}>
             <Typography sx={{ color: tone.faint, fontSize: 14 }}>
-              {order ? 'Borrador guardado. Usa «Pasar a taller» cuando el cliente autorice el trabajo; ahí aparece en la pestaña En taller.' : 'Captura guardada solo en este equipo hasta elegir cliente y vehículo.'}
+              La captura se respalda en este equipo. Con «Crear orden» se le asigna folio y queda en progreso.
             </Typography>
-            <Button disabled={busy} onClick={() => onRequestTransition('cancel')} sx={{ color: tone.danger }}>Descartar borrador</Button>
+            {canDiscardLocal && <Button disabled={busy} onClick={() => onRequestTransition('delete')} sx={{ color: tone.danger }}>Descartar captura</Button>}
           </Stack>
         )}
-        {!order && !canDiscardLocal && <Typography sx={{ color: tone.faint, fontSize: 14 }}>La captura se guarda sola mientras escribes.</Typography>}
         {closed && order && (
-          <Typography sx={{ color: order.status === 'COMPLETED' ? tone.successInk : tone.dangerInk, fontSize: 14, fontWeight: 500 }}>
-            {order.status === 'COMPLETED'
-              ? `Completada${order.completedAt ? ` el ${new Date(order.completedAt).toLocaleDateString('es-MX')}` : ''}. Puedes seguir editándola; guarda los cambios al terminar.`
-              : `Cancelada${order.cancelledAt ? ` el ${new Date(order.cancelledAt).toLocaleDateString('es-MX')}` : ''}. Se conserva como registro histórico.`}
-          </Typography>
+          <Stack spacing={1.25}>
+            <Typography sx={{ color: order.status === 'COMPLETED' ? tone.successInk : tone.dangerInk, fontSize: 14, fontWeight: 500 }}>
+              {order.status === 'COMPLETED'
+                ? `Completada${order.completedAt ? ` el ${new Date(order.completedAt).toLocaleDateString('es-MX')}` : ''}. Puedes seguir editándola; guarda los cambios al terminar.`
+                : `Eliminada${order.cancelledAt ? ` el ${new Date(order.cancelledAt).toLocaleDateString('es-MX')}` : ''}. Se conserva solo como registro del folio.`}
+            </Typography>
+            {order.status === 'COMPLETED' && <Button disabled={busy} onClick={() => onRequestTransition('delete')} sx={{ color: tone.danger }}>Eliminar orden</Button>}
+          </Stack>
         )}
       </SectionCard>
     </Stack>

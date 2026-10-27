@@ -13,9 +13,10 @@ import assert from 'node:assert/strict';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const stressRows = process.argv.includes('--stress-rows');
 const twoOtherRows = process.argv.includes('--two-other-rows');
+const partOrder = process.argv.includes('--part');
 const stressTest = process.argv.includes('--stress') || stressRows;
 const outputDirectory = stressTest ? path.join(root, 'tmp', 'pdfs', 'stress-feedback') : path.join(root, 'output', 'pdf');
-const outputPath = path.join(outputDirectory, twoOtherRows ? 'orden-servicio-ejemplo-dos-otros.pdf' : 'orden-servicio-ejemplo.pdf');
+const outputPath = path.join(outputDirectory, twoOtherRows ? 'orden-servicio-ejemplo-dos-otros.pdf' : partOrder ? 'orden-pieza-ejemplo.pdf' : 'orden-servicio-ejemplo.pdf');
 
 const failureTypes: ReportedFailureType[] = [
   { id: 1, code: 'SERVICIO_RADIADOR', label: 'Servicio radiador', displayOrder: 1, allowsFreeText: false, active: true },
@@ -40,6 +41,7 @@ const order: ServiceOrder = {
   folioSeries: 'SER',
   folioNumber: 4869,
   status: 'IN_PROGRESS',
+  category: 'VEHICLE',
   serviceDate: '2026-08-21',
   clientVehicleId: 11,
   clientId: 1,
@@ -95,6 +97,11 @@ const order: ServiceOrder = {
   ],
   items: [],
 };
+
+if (partOrder) {
+  // A loose part: no vehicle row and no engine warnings on the printout.
+  Object.assign(order, { category: 'PART', partDescription: 'Radiador de Tsuru 2004, tanque superior roto', clientVehicleId: null, vehicleId: null, vehicleSnapshot: {}, compressionLeakDetected: true });
+}
 
 if (stressTest) order.importantInformation = Array.from({ length: 32 }, (_, i) => `${i + 1}. ==Observación de prueba ${i + 1}==: revisar mangueras, temperatura y presión. __Confirmar con el cliente antes de reparar.__`).join('\n');
 if (stressRows) {
@@ -160,7 +167,7 @@ await renderToFile(
 
 process.stdout.write(`${outputPath}\n`);
 if (!twoOtherRows) {
-const receiptPath = path.join(outputDirectory, 'comprobante-servicio-ejemplo.pdf');
+const receiptPath = path.join(outputDirectory, partOrder ? 'comprobante-pieza-ejemplo.pdf' : 'comprobante-servicio-ejemplo.pdf');
 await renderToFile(
   <ServiceOrderPdfDocument
     kind="receipt"

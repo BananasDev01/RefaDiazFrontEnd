@@ -1,7 +1,9 @@
+import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
+import DirectionsCarOutlinedIcon from '@mui/icons-material/DirectionsCarOutlined';
 import { Box, Typography, type BoxProps, type SxProps, type Theme } from '@mui/material';
 import type { ReactNode } from 'react';
-import type { ServiceOrderStatus } from '../../types/serviceOrder.types';
-import { SERVICE_ORDER_STATUS_LABELS } from '../../types/serviceOrder.types';
+import type { ServiceOrderCategory, ServiceOrderStatus } from '../../types/serviceOrder.types';
+import { SERVICE_ORDER_CATEGORY_LABELS, SERVICE_ORDER_STATUS_LABELS } from '../../types/serviceOrder.types';
 import { daysLabel, initials } from './serviceOrderUtils';
 import { cardSx, tone } from './tokens';
 
@@ -74,7 +76,6 @@ export const PlateBadge = ({ plate, size = 'md' }: { plate?: string | null; size
 );
 
 const statusTone: Record<ServiceOrderStatus, { bg: string; fg: string }> = {
-  DRAFT: { bg: tone.ground, fg: tone.muted },
   IN_PROGRESS: { bg: tone.primarySoft, fg: tone.primaryDark },
   COMPLETED: { bg: tone.successTint, fg: tone.successInk },
   CANCELLED: { bg: tone.dangerTint, fg: tone.dangerInk },
@@ -83,6 +84,19 @@ const statusTone: Record<ServiceOrderStatus, { bg: string; fg: string }> = {
 export const StatusPill = ({ status }: { status: ServiceOrderStatus }) => (
   <Box component="span" sx={{ display: 'inline-block', px: 1.25, py: 0.375, borderRadius: 999, bgcolor: statusTone[status].bg, color: statusTone[status].fg, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
     {SERVICE_ORDER_STATUS_LABELS[status]}
+  </Box>
+);
+
+export const CategoryIcon = ({ category, fontSize = 'small' }: { category: ServiceOrderCategory; fontSize?: 'small' | 'inherit' }) => (
+  category === 'PART'
+    ? <BuildOutlinedIcon fontSize={fontSize} sx={{ color: tone.partInk }} aria-hidden="true" />
+    : <DirectionsCarOutlinedIcon fontSize={fontSize} sx={{ color: tone.faint }} aria-hidden="true" />
+);
+
+export const CategoryPill = ({ category }: { category: ServiceOrderCategory }) => (
+  <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1.25, py: 0.375, borderRadius: 999, bgcolor: category === 'PART' ? tone.partTint : tone.ground, color: category === 'PART' ? tone.partInk : tone.muted, fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
+    <CategoryIcon category={category} fontSize="inherit" />
+    {SERVICE_ORDER_CATEGORY_LABELS[category]}
   </Box>
 );
 

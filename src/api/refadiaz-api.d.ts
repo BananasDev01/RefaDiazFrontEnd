@@ -265,8 +265,9 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Iniciar un servicio guardado como borrador
-         * @description Cambia una orden `DRAFT` a `IN_PROGRESS` con control optimista.
+         * Iniciar un servicio (obsoleto)
+         * @deprecated
+         * @description Las órdenes ya nacen `IN_PROGRESS`; se conserva para pantallas anteriores y no cambia nada.
          */
         post: operations["startService"];
         delete?: never;
@@ -284,7 +285,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cancelar un servicio */
+        /**
+         * Eliminar un servicio
+         * @description Marca la orden como `CANCELLED` (abierta o completada) con el motivo; deja de aparecer en listas y búsquedas.
+         */
         post: operations["cancelService"];
         delete?: never;
         options?: never;
@@ -505,8 +509,16 @@ export interface components {
         } | null;
         /** @enum {integer} */
         WarrantyMonths: 0 | 3 | 6 | 12;
-        /** @enum {string} */
-        ServiceStatus: "DRAFT" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+        /**
+         * @description CANCELLED es una orden eliminada; solo aparece al filtrarla explícitamente
+         * @enum {string}
+         */
+        ServiceStatus: "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+        /**
+         * @description VEHICLE entra al taller con su vehículo; PART es una pieza suelta sin vehículo
+         * @enum {string}
+         */
+        ServiceCategory: "VEHICLE" | "PART";
         /**
          * @description EXPIRED se deriva de validUntil para borradores o cotizaciones enviadas
          * @enum {string}
@@ -606,9 +618,15 @@ export interface components {
             externalId: string;
             note: string;
         };
+        /** @description VEHICLE requiere clientVehicleId; PART requiere clientId y no lleva vehículo */
         ServiceWriteFields: {
             provisionalReference?: string;
-            clientVehicleId: number;
+            category?: components["schemas"]["ServiceCategory"];
+            clientVehicleId?: number;
+            /** @description Solo para PART */
+            clientId?: number;
+            /** @description Solo para PART */
+            partDescription?: string;
             /** Format: date */
             serviceDate?: string;
             workManagerUserId?: string;
@@ -651,6 +669,10 @@ export interface components {
         };
         VersionTransitionRequest: {
             expectedVersion: number;
+        };
+        ServiceCancelRequest: {
+            expectedVersion: number;
+            reason: string;
         };
         ReportedFailureType: {
             id: number;
@@ -703,10 +725,13 @@ export interface components {
             /** Format: date-time */
             folioAssignedAt?: string;
             status: components["schemas"]["ServiceStatus"];
+            category: components["schemas"]["ServiceCategory"];
+            partDescription?: components["schemas"]["NullableString"];
+            cancellationReason?: components["schemas"]["NullableString"];
             serviceDate?: components["schemas"]["NullableDate"];
-            clientVehicleId: number;
+            clientVehicleId?: number | null;
             clientId: number;
-            vehicleId: number;
+            vehicleId?: number | null;
             workManagerUserId?: components["schemas"]["NullableString"];
             reportedFailureSummary?: components["schemas"]["NullableString"];
             authorizedWorkDescription?: components["schemas"]["NullableString"];
@@ -1425,7 +1450,9 @@ export interface operations {
                 plate?: components["parameters"]["PlateQuery"];
                 /** @description Texto libre por palabras (folio, cliente, teléfonos, marca, modelo, año, color, placas, serie del radiador, motivo de ingreso); cada palabra debe coincidir */
                 q?: string;
+                /** @description Sin estado se omiten las órdenes eliminadas */
                 status?: components["schemas"]["ServiceStatus"];
+                category?: components["schemas"]["ServiceCategory"];
                 clientId?: components["parameters"]["ClientIdQuery"];
                 /** @description Predeterminado 50; el servidor limita valores mayores a 100 */
                 limit?: components["parameters"]["LimitQuery"];
@@ -1668,7 +1695,15 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["VersionTransition"];
+        requestBody: {
+            content: {
+                /** @example {
+                 *       "expectedVersion": 2,
+                 *       "reason": "Capturada por error"
+                 *     } */
+                "application/json": components["schemas"]["ServiceCancelRequest"];
+            };
+        };
         responses: {
             /** @description Servicio cancelado o reintento idempotente */
             200: {

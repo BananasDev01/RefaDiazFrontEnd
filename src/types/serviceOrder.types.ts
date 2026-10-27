@@ -1,6 +1,7 @@
 import type { components, operations } from '../api/refadiaz-api';
 
 export type ServiceOrderStatus = components['schemas']['ServiceStatus'];
+export type ServiceOrderCategory = components['schemas']['ServiceCategory'];
 export type ServiceOrder = components['schemas']['ServiceResponse'];
 export type ServiceOrderListResponse = components['schemas']['ServiceListResponse'];
 export type ServiceOrderCreateRequest = components['schemas']['ServiceCreateRequest'];
@@ -21,8 +22,10 @@ export interface ServiceOrderFailureFormValue {
 }
 
 export interface ServiceOrderFormValues {
+  category: ServiceOrderCategory;
   clientId: number | null;
   clientVehicleId: number | null;
+  partDescription: string;
   serviceDate: string;
   reportedFailureSummary: string;
   workManagerUserId: string;
@@ -41,10 +44,15 @@ export interface ServiceOrderFormValues {
 }
 
 export const SERVICE_ORDER_STATUS_LABELS: Record<ServiceOrderStatus, string> = {
-  DRAFT: 'Borrador',
-  IN_PROGRESS: 'En taller',
+  IN_PROGRESS: 'En progreso',
   COMPLETED: 'Completada',
-  CANCELLED: 'Cancelada',
+  // Deleted orders are hidden from lists; the record stays for the folio trail.
+  CANCELLED: 'Eliminada',
+};
+
+export const SERVICE_ORDER_CATEGORY_LABELS: Record<ServiceOrderCategory, string> = {
+  VEHICLE: 'Vehículo',
+  PART: 'Pieza',
 };
 
 export const getSnapshotText = (

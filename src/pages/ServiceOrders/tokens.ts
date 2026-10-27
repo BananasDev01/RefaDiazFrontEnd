@@ -26,6 +26,8 @@ export const tone = {
   warnBorder: '#F2D9A6',
   warnInk: '#7A4D00',
   highlight: '#FFF19B',
+  partTint: '#F1ECFA',
+  partInk: '#4E3A86',
 } as const;
 
 export const APP_BAR_HEIGHT = { xs: 56, sm: 64 } as const;

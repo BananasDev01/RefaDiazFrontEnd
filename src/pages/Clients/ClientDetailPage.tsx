@@ -101,7 +101,7 @@ export const ClientDetailPage = () => {
           </Box>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.25 }}>
             <Stat><strong>{totalOrders}</strong> {totalOrders === 1 ? 'orden' : 'órdenes'}</Stat>
-            {inWorkshop.length > 0 && <Stat accent><strong>{inWorkshop.length}</strong> en taller</Stat>}
+            {inWorkshop.length > 0 && <Stat accent><strong>{inWorkshop.length}</strong> en progreso</Stat>}
             {since && <Stat>Cliente desde {since}</Stat>}
           </Box>
         </PageContainer>

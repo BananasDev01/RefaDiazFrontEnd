@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useServiceOrders, useServiceOrderStatusCounts } from '../../hooks/useServiceOrders';
-import type { ServiceOrderSearchParams, ServiceOrderStatus } from '../../types/serviceOrder.types';
+import type { ServiceOrderCategory, ServiceOrderSearchParams } from '../../types/serviceOrder.types';
 import { draftKey, listDrafts, removeDraft, type ServiceDraft } from './serviceOrderDrafts';
 import {
   daysSince,
@@ -37,17 +37,23 @@ import {
   snapshotPlate,
   snapshotVehicleName,
 } from './serviceOrderUtils';
-import { AgePill, PageCanvas, PageContainer, PlateBadge } from './ui';
+import { AgePill, CategoryIcon, PageCanvas, PageContainer, PlateBadge } from './ui';
 import { cardSx, inputSx, tone } from './tokens';
 
 const PAGE_SIZE = 20;
-const tabs: { status: ServiceOrderStatus; label: string; empty: string }[] = [
-  { status: 'IN_PROGRESS', label: 'En taller', empty: 'No hay vehículos en taller' },
-  { status: 'DRAFT', label: 'Borradores', empty: 'No hay borradores' },
+// Deleted orders never show here; old links to removed tabs land on «En progreso».
+const tabs = [
+  { status: 'IN_PROGRESS', label: 'En progreso', empty: 'No hay órdenes en progreso' },
   { status: 'COMPLETED', label: 'Completadas', empty: 'No hay órdenes completadas' },
-  { status: 'CANCELLED', label: 'Canceladas', empty: 'No hay órdenes canceladas' },
+] as const;
+type ListStatus = (typeof tabs)[number]['status'];
+const isStatus = (value: string | null): value is ListStatus => tabs.some((tab) => tab.status === value);
+const categoryFilters: { value: ServiceOrderCategory | null; label: string }[] = [
+  { value: null, label: 'Todas' },
+  { value: 'VEHICLE', label: 'Vehículos' },
+  { value: 'PART', label: 'Piezas' },
 ];
-const isStatus = (value: string | null): value is ServiceOrderStatus => tabs.some((tab) => tab.status === value);
+const isCategory = (value: string | null): value is ServiceOrderCategory => value === 'VEHICLE' || value === 'PART';
 const columns = '110px minmax(0, 1.2fr) minmax(0, 1.6fr) 150px 130px 24px';
 
 const draftUrl = (draft: ServiceDraft, returnUrl: string) => (draft.server
@@ -104,7 +110,9 @@ const LocalDrafts = ({ returnUrl }: { returnUrl: string }) => {
 export const ServiceOrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusParam = searchParams.get('status');
-  const status: ServiceOrderStatus = isStatus(statusParam) ? statusParam : 'IN_PROGRESS';
+  const status: ListStatus = isStatus(statusParam) ? statusParam : 'IN_PROGRESS';
+  const categoryParam = searchParams.get('category');
+  const category = isCategory(categoryParam) ? categoryParam : undefined;
   const rawPage = Number(searchParams.get('page') ?? 0);
   const page = Number.isSafeInteger(rawPage) && rawPage >= 0 ? rawPage : 0;
   const query = searchParams.get('q') ?? '';
@@ -126,6 +134,7 @@ export const ServiceOrdersPage = () => {
   const filters = useMemo<ServiceOrderSearchParams>(() => {
     const base: ServiceOrderSearchParams = {
       status,
+      category,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
       dateFrom: dateFrom || undefined,
@@ -133,10 +142,10 @@ export const ServiceOrdersPage = () => {
     };
     if (debouncedQuery) base[searchField] = debouncedQuery;
     return base;
-  }, [dateFrom, dateTo, debouncedQuery, page, searchField, status]);
+  }, [category, dateFrom, dateTo, debouncedQuery, page, searchField, status]);
 
   const { data, isLoading, isFetching, isError, error, refetch } = useServiceOrders(filters, !invalidDates);
-  const counts = useServiceOrderStatusCounts();
+  const counts = useServiceOrderStatusCounts(undefined, category);
   const orders = data?.data ?? [];
   const total = data?.pagination.total ?? 0;
   const hasFilters = Boolean(query || dateFrom || dateTo);
@@ -184,6 +193,22 @@ export const ServiceOrdersPage = () => {
               );
             })}
           </Box>
+          <Box role="group" aria-label="Tipo de orden" sx={[cardSx, { display: 'flex', p: 0.5, gap: 0.25, borderRadius: 2.5 }]}>
+            {categoryFilters.map((filter) => {
+              const selected = (filter.value ?? undefined) === category;
+              return (
+                <ButtonBase
+                  key={filter.label}
+                  aria-pressed={selected}
+                  onClick={() => update({ category: filter.value })}
+                  sx={{ height: 36, px: 1.5, gap: 0.75, borderRadius: 1.75, fontSize: 14, fontWeight: 500, bgcolor: selected ? tone.primaryTint : 'transparent', color: selected ? tone.primaryDark : tone.muted, '&:focus-visible': { outline: `2px solid ${tone.primary}`, outlineOffset: 1 } }}
+                >
+                  {filter.value && <CategoryIcon category={filter.value} />}
+                  {filter.label}
+                </ButtonBase>
+              );
+            })}
+          </Box>
           <TextField
             value={query}
             onChange={(event) => update({ q: event.target.value })}
@@ -215,7 +240,7 @@ export const ServiceOrdersPage = () => {
           >
             {dateLabel}
           </Button>
-          {hasFilters && <Button onClick={() => setSearchParams({ status }, { replace: true })}>Limpiar</Button>}
+          {hasFilters && <Button onClick={() => setSearchParams(category ? { status, category } : { status }, { replace: true })}>Limpiar</Button>}
         </Box>
 
         <Popover open={Boolean(dateAnchor)} anchorEl={dateAnchor} onClose={() => setDateAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
@@ -238,7 +263,7 @@ export const ServiceOrdersPage = () => {
           <Box sx={[cardSx, { overflowX: 'auto' }]}>
             <Box sx={{ minWidth: 900 }} aria-busy={isFetching}>
               <Box sx={{ display: 'grid', gridTemplateColumns: columns, gap: 2, px: 2.5, py: 1.5, bgcolor: tone.subtle, borderBottom: 1, borderColor: tone.border, fontSize: 12, fontWeight: 700, color: tone.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                <span>Folio</span><span>Cliente</span><span>Vehículo y motivo</span><span>{inWorkshop ? 'En taller' : 'Ingreso'}</span><Box component="span" sx={{ textAlign: 'right' }}>Total</Box><span />
+                <span>Folio</span><span>Cliente</span><span>Vehículo o pieza y motivo</span><span>{inWorkshop ? 'Abierta' : 'Ingreso'}</span><Box component="span" sx={{ textAlign: 'right' }}>Total</Box><span />
               </Box>
               {isLoading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
@@ -265,8 +290,9 @@ export const ServiceOrdersPage = () => {
                       <Box component="span" sx={{ display: 'block', color: tone.faint, fontSize: 13 }}>{snapshotPhones(order)}</Box>
                     </Box>
                     <Box component="span" sx={{ minWidth: 0 }}>
-                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box component="span" sx={{ fontWeight: 500 }}>{snapshotVehicleName(order)}</Box>
+                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                        <CategoryIcon category={order.category} />
+                        <Box component="span" title={snapshotVehicleName(order)} sx={{ fontWeight: 500, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{snapshotVehicleName(order)}</Box>
                         {snapshotColor(order) && <Box component="span" sx={{ color: tone.muted, fontSize: 13 }}>{snapshotColor(order)}</Box>}
                         <PlateBadge plate={snapshotPlate(order)} size="sm" />
                       </Box>
