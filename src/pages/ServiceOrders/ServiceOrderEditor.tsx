@@ -90,7 +90,8 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
       : initialValues(failureTypes, initialOrder, initialClientId, initialVehicleId, initialCategory),
   });
   const { control, handleSubmit, formState: { isDirty, isSubmitting } } = methods;
-  const autosave = useServiceDraft(storageKey, externalId, methods, initialOrder, failureTypes);
+  // A capture started here saves itself (and opens in progress); a reopened order saves explicitly.
+  const autosave = useServiceDraft(storageKey, externalId, methods, initialOrder, failureTypes, !initialOrder);
   const { completeServiceOrder, deleteServiceOrder, isTransitioning } = useServiceOrderMutations();
   const [transition, setTransition] = useState<'complete' | 'delete' | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
@@ -110,7 +111,6 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
   const { data: client } = useClient(clientId);
   const vehicle = category === 'VEHICLE' ? client?.vehicles.find((candidate) => candidate.clientVehicleId === clientVehicleId) : undefined;
   const back = returnTo ?? `/service-orders`;
-  const returnQuery = returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : '';
 
   const leaveTo = (path: string) => {
     if (autosave.synced || !isDirty || window.confirm('Hay cambios sin guardar en el servidor. Se conservará la copia de este equipo. ¿Salir?')) navigate(path);
@@ -121,13 +121,7 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
   const openClient = useCallback((id: number) => leaveRef.current(`/clients/${id}`), []);
   const requestTransition = useCallback((next: 'complete' | 'delete') => { setDeleteReason(''); setTransition(next); }, []);
 
-  // A new capture lives only on this device until «Crear orden»; then it opens in progress with its folio.
-  const saveChanges = handleSubmit(async () => {
-    try {
-      const saved = await autosave.save();
-      if (!order) navigate(`/service-orders/${saved.externalId}${returnQuery}`, { replace: true });
-    } catch { /* The save hook reports the failure without losing the capture. */ }
-  });
+  const saveChanges = handleSubmit(async () => { await autosave.save().catch(() => undefined); });
 
   const confirmTransition = async () => {
     if (!transition) return;
@@ -163,7 +157,7 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
       : order && autosave.synced
         ? { tone: tone.success, icon: <CheckIcon fontSize="small" />, text: 'Todo guardado' }
         : !order && !isDirty && !autosave.recovered
-          ? { tone: tone.faint, icon: null, text: 'Se respalda en este equipo' }
+          ? { tone: tone.faint, icon: null, text: 'Se guarda sola mientras capturas' }
           : { tone: tone.warnInk, icon: null, text: autosave.status || 'Cambios sin guardar' };
 
   const primaryLabel = order ? 'Guardar cambios' : 'Crear orden';

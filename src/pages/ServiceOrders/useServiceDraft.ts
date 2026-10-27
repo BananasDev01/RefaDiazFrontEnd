@@ -17,10 +17,11 @@ const isClosed = (order?: ServiceOrder) => order?.status === 'CANCELLED';
 
 /**
  * Local checkpoint for each burst of edits (first change immediately, the rest
- * once typing pauses); server writes are explicit, serialized and versioned.
- * There are no server drafts: an order exists once the operator creates it.
+ * once typing pauses); serialized, versioned server writes. A new capture
+ * (`autoSave`) creates its order in progress as soon as it is valid and keeps
+ * saving itself after idle; reopened orders save explicitly.
  */
-export function useServiceDraft(key: string, externalId: string, form: UseFormReturn<ServiceOrderFormValues>, initialOrder: ServiceOrder | undefined, types: ReportedFailureType[]) {
+export function useServiceDraft(key: string, externalId: string, form: UseFormReturn<ServiceOrderFormValues>, initialOrder: ServiceOrder | undefined, types: ReportedFailureType[], autoSave = false) {
   const queryClient = useQueryClient();
   const recovered = useRef<ServiceDraft | null | undefined>(undefined);
   if (recovered.current === undefined) {
@@ -32,7 +33,7 @@ export function useServiceDraft(key: string, externalId: string, form: UseFormRe
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [, setRevision] = useState(0);
+  const [revision, setRevision] = useState(0);
   const active = useRef(true);
   const queue = useRef<Promise<ServiceOrder> | null>(null);
   const acknowledged = useRef(recovered.current?.syncedValues ?? (initialOrder ? JSON.stringify(form.getValues()) : ''));
@@ -159,6 +160,17 @@ export function useServiceDraft(key: string, externalId: string, form: UseFormRe
       throw failure;
     } finally { queue.current = null; if (active.current) setBusy(false); }
   };
+  const saveRef = useRef(save); saveRef.current = save;
+
+  useEffect(() => {
+    if (!autoSave || (!revision && !recovered.current) || busy || conflict.current || isClosed(server.current)) return;
+    const timer = window.setTimeout(async () => {
+      if (!active.current || !await serviceOrderSchema.isValid(form.getValues())) return;
+      if (JSON.stringify(form.getValues()) === acknowledged.current) return;
+      void saveRef.current().catch(() => undefined);
+    }, error ? 15000 : 1200);
+    return () => window.clearTimeout(timer);
+  }, [autoSave, revision, busy, form, error]);
 
   const acceptTransition = (next: ServiceOrder) => {
     server.current = next; setOrder(next); setError(null);

@@ -123,7 +123,7 @@ describe('editor de órdenes', { timeout: 20_000 }, () => {
     expect(screen.getAllByRole('textbox', { name: 'Costo de Otros' })).toHaveLength(2);
   });
 
-  it('una captura nueva se crea con «Crear orden» y no hay borradores', () => {
+  it('una captura nueva se guarda sola y ya no tiene «Pasar a taller»', () => {
     renderEditor({ order: undefined, draftId: 'b0d8c6a2-6f37-4d7d-9a35-31b2c1f0a222', initialClientId: 1, initialVehicleId: 11 });
     expect(screen.getByRole('button', { name: 'Crear orden' })).toHaveAttribute('type', 'submit');
     expect(screen.queryByRole('button', { name: 'Pasar a taller' })).not.toBeInTheDocument();

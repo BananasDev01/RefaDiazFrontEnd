@@ -154,7 +154,7 @@ export const SummaryAside = memo(({ order, failureTypes, readOnly, synced, busy,
         {!order && (
           <Stack spacing={1.25}>
             <Typography sx={{ color: tone.faint, fontSize: 14 }}>
-              La captura se respalda en este equipo. Con «Crear orden» se le asigna folio y queda en progreso.
+              La orden se guarda sola en cuanto tenga cliente y vehículo (o la descripción de la pieza); ahí recibe folio y queda en progreso.
             </Typography>
             {canDiscardLocal && <Button disabled={busy} onClick={() => onRequestTransition('delete')} sx={{ color: tone.danger }}>Descartar captura</Button>}
           </Stack>

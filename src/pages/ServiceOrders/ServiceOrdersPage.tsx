@@ -3,7 +3,6 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
@@ -18,12 +17,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useServiceOrders, useServiceOrderStatusCounts } from '../../hooks/useServiceOrders';
 import type { ServiceOrderCategory, ServiceOrderSearchParams } from '../../types/serviceOrder.types';
-import { draftKey, listDrafts, removeDraft, type ServiceDraft } from './serviceOrderDrafts';
 import {
   daysSince,
   detectSearchField,
@@ -55,57 +53,6 @@ const categoryFilters: { value: ServiceOrderCategory | null; label: string }[] =
 ];
 const isCategory = (value: string | null): value is ServiceOrderCategory => value === 'VEHICLE' || value === 'PART';
 const columns = '110px minmax(0, 1.2fr) minmax(0, 1.6fr) 150px 130px 24px';
-
-const draftUrl = (draft: ServiceDraft, returnUrl: string) => (draft.server
-  ? `/service-orders/${draft.externalId}?returnTo=${encodeURIComponent(returnUrl)}`
-  : `/service-orders/new?draft=${draft.externalId}&returnTo=${encodeURIComponent(returnUrl)}`);
-
-const LocalDrafts = ({ returnUrl }: { returnUrl: string }) => {
-  const [drafts, setDrafts] = useState(listDrafts);
-  const [expanded, setExpanded] = useState(false);
-  useEffect(() => {
-    const refresh = () => setDrafts(listDrafts());
-    window.addEventListener('service-drafts-changed', refresh);
-    window.addEventListener('storage', refresh);
-    return () => { window.removeEventListener('service-drafts-changed', refresh); window.removeEventListener('storage', refresh); };
-  }, []);
-  if (!drafts.length) return null;
-  const [first] = drafts;
-  const describe = (draft: ServiceDraft) => `«${draft.values.reportedFailureSummary.trim() || 'Sin motivo de ingreso'}», ${new Date(draft.updatedAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`;
-
-  return (
-    <Box role="status" sx={{ border: 1, borderColor: tone.warnBorder, bgcolor: tone.warnTint, color: tone.warnInk, borderRadius: 2.5, px: 1.75, py: 1.25 }}>
-      <Stack direction="row" alignItems="center" spacing={1.5}>
-        <ErrorOutlineIcon fontSize="small" />
-        <Typography sx={{ flex: 1, fontSize: 14 }}>
-          {drafts.length === 1 ? `1 captura sin enviar en este equipo · ${describe(first)}` : `${drafts.length} capturas sin enviar en este equipo`}
-        </Typography>
-        {drafts.length === 1
-          ? <Button component={Link} to={draftUrl(first, returnUrl)} size="small" sx={{ color: tone.warnInk, fontWeight: 700 }}>Continuar</Button>
-          : <Button size="small" onClick={() => setExpanded((value) => !value)} sx={{ color: tone.warnInk, fontWeight: 700 }}>{expanded ? 'Ocultar' : 'Ver capturas'}</Button>}
-      </Stack>
-      {(expanded || drafts.length === 1) && (
-        <Stack spacing={0.5} sx={{ mt: drafts.length === 1 ? 0 : 1 }}>
-          {drafts.map((draft) => (
-            <Stack key={draft.externalId} direction="row" alignItems="center" spacing={1} sx={{ pl: 4 }}>
-              {drafts.length > 1 && <Typography sx={{ flex: 1, fontSize: 13 }}>{describe(draft)}</Typography>}
-              {drafts.length > 1 && <Button component={Link} to={draftUrl(draft, returnUrl)} size="small" sx={{ color: tone.warnInk }}>Continuar</Button>}
-              {!draft.server && (
-                <Button
-                  size="small"
-                  sx={{ color: tone.dangerInk, ml: drafts.length === 1 ? 'auto' : 0 }}
-                  onClick={() => { if (window.confirm('¿Eliminar esta captura local? No se puede deshacer.')) removeDraft(draftKey(draft.externalId)); }}
-                >
-                  Eliminar copia
-                </Button>
-              )}
-            </Stack>
-          ))}
-        </Stack>
-      )}
-    </Box>
-  );
-};
 
 export const ServiceOrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -170,8 +117,6 @@ export const ServiceOrdersPage = () => {
             Nueva orden
           </Button>
         </Box>
-
-        <LocalDrafts returnUrl={returnUrl} />
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
           <Box role="tablist" aria-label="Estado de las órdenes" sx={[cardSx, { display: 'flex', p: 0.5, gap: 0.25, borderRadius: 2.5 }]}>

@@ -124,7 +124,7 @@ export const NewServiceOrderPage = () => {
           </Button>
           <Box sx={{ width: '1px', height: 28, bgcolor: tone.border }} />
           <Typography component="h1" sx={{ fontSize: 22, fontWeight: 700, color: tone.ink, flex: 1 }}>Nueva orden</Typography>
-          <Typography sx={{ color: tone.faint, fontSize: 13 }}>Se respalda en este equipo</Typography>
+          <Typography sx={{ color: tone.faint, fontSize: 13 }}>Se guarda sola mientras capturas</Typography>
         </PageContainer>
       </Box>
       <Box sx={{ maxWidth: 880, mx: 'auto', px: { xs: 2, md: 4 }, pt: 5, pb: 7 }}>

@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import type { ReportedFailureType, ServiceOrder, ServiceOrderFormValues } from '../../types/serviceOrder.types';
 import { createServiceOrder, updateServiceOrder } from '../../services/ServiceOrderService';
 import { createFormValues } from './serviceOrderFormData';
-import { draftKey, listDrafts, readDraft, writeDraft } from './serviceOrderDrafts';
+import { draftKey, readDraft, writeDraft } from './serviceOrderDrafts';
 import { CHECKPOINT_IDLE_MS, useServiceDraft } from './useServiceDraft';
 
 vi.mock('../../services/ServiceOrderService', () => ({ createServiceOrder: vi.fn(), updateServiceOrder: vi.fn(), getServiceOrder: vi.fn() }));
@@ -16,7 +16,7 @@ const saved: ServiceOrder = { id: 1, externalId: id, provisionalReference: 'QA',
 const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>;
 const setup = (initial?: ServiceOrder, defaults = createFormValues(types, initial)) => renderHook(() => {
   const form = useForm<ServiceOrderFormValues>({ defaultValues: defaults });
-  const draft = useServiceDraft(draftKey(id), id, form, initial, types);
+  const draft = useServiceDraft(draftKey(id), id, form, initial, types, !initial);
   return { form, draft };
 }, { wrapper });
 const idle = () => act(async () => { await vi.advanceTimersByTimeAsync(1300); });
@@ -29,22 +29,19 @@ describe('respaldo y sincronización de borradores', () => {
     const { result } = setup();
     act(() => result.current.form.setValue('reportedFailureSummary', 'Depósito con sarro'));
     expect(readDraft(draftKey(id))?.values.reportedFailureSummary).toBe('Depósito con sarro');
-    expect(listDrafts()).toHaveLength(1);
     await idle();
     expect(createServiceOrder).not.toHaveBeenCalled();
   });
 
-  it('no crea la orden sola: «Crear orden» la crea con el mismo UUID y después la actualiza', async () => {
+  it('crea la orden sola al tener cliente y vehículo, luego actualiza el mismo UUID', async () => {
     const { result } = setup();
     act(() => { result.current.form.setValue('clientId', 1); result.current.form.setValue('clientVehicleId', 11); });
     await idle();
-    expect(createServiceOrder).not.toHaveBeenCalled();
-    await act(async () => { await result.current.draft.save(); });
     expect(createServiceOrder).toHaveBeenCalledTimes(1);
     expect(vi.mocked(createServiceOrder).mock.calls[0][0].externalId).toBe(id);
     expect(result.current.draft.synced).toBe(true);
     act(() => result.current.form.setValue('reportedFailureSummary', 'Texto nuevo'));
-    await act(async () => { await result.current.draft.save(); });
+    await idle();
     expect(updateServiceOrder).toHaveBeenCalledWith(id, expect.objectContaining({ expectedVersion: 1, reportedFailureSummary: 'Texto nuevo' }));
     expect(createServiceOrder).toHaveBeenCalledTimes(1);
   });
@@ -57,7 +54,7 @@ describe('respaldo y sincronización de borradores', () => {
       result.current.form.setValue('partDescription', ' Radiador de Tsuru 2004 ');
       result.current.form.setValue('compressionLeakDetected', true);
     });
-    await act(async () => { await result.current.draft.save(); });
+    await idle();
     const payload = vi.mocked(createServiceOrder).mock.calls[0][0];
     expect(payload).toMatchObject({ category: 'PART', clientId: 1, partDescription: 'Radiador de Tsuru 2004', compressionLeakDetected: false });
     expect(payload).not.toHaveProperty('clientVehicleId');
@@ -68,14 +65,12 @@ describe('respaldo y sincronización de borradores', () => {
     vi.mocked(createServiceOrder).mockReturnValue(new Promise((done) => { resolve = done; }));
     const { result } = setup();
     act(() => { result.current.form.setValue('clientId', 1); result.current.form.setValue('clientVehicleId', 11); });
-    let pending!: Promise<ServiceOrder>;
-    act(() => { pending = result.current.draft.save(); });
-    await act(async () => { await Promise.resolve(); });
+    await idle();
     act(() => result.current.form.setValue('reportedFailureSummary', 'Editado durante envío'));
-    await act(async () => { resolve(saved); await pending; });
+    await act(async () => resolve(saved));
     expect(result.current.form.getValues('reportedFailureSummary')).toBe('Editado durante envío');
     expect(result.current.draft.synced).toBe(false);
-    await act(async () => { await result.current.draft.save(); });
+    await idle();
     expect(updateServiceOrder).toHaveBeenCalledWith(id, expect.objectContaining({ reportedFailureSummary: 'Editado durante envío' }));
   });
 
@@ -83,7 +78,7 @@ describe('respaldo y sincronización de borradores', () => {
     vi.mocked(createServiceOrder).mockRejectedValueOnce(new Error('Sin conexión'));
     const { result } = setup();
     act(() => { result.current.form.setValue('clientId', 1); result.current.form.setValue('clientVehicleId', 11); });
-    await act(async () => { await result.current.draft.save().catch(() => undefined); });
+    await idle();
     expect(result.current.draft.error).toBe('Sin conexión');
     expect(readDraft(draftKey(id))).not.toBeNull();
     await act(async () => { await result.current.draft.save(); });
@@ -106,7 +101,7 @@ describe('respaldo y sincronización de borradores', () => {
     const { result } = setup();
     act(() => result.current.form.setValue('reportedFailureSummary', 'Privado'));
     localStorage.setItem('user', JSON.stringify({ id: 'empleado-2' }));
-    expect(listDrafts()).toHaveLength(0);
+    expect(readDraft(draftKey(id))).toBeNull();
     expect(readDraft(key)).not.toBeNull();
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Quota exceeded'); });
     act(() => result.current.form.setValue('reportedFailureSummary', 'No respaldado'));

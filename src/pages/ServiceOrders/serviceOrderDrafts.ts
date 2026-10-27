@@ -33,16 +33,6 @@ export function writeDraft(key: string, draft: ServiceDraft): void {
   window.dispatchEvent(new Event('service-drafts-changed'));
 }
 
-export function listDrafts(): ServiceDraft[] {
-  try {
-    const prefix = draftPrefix();
-    return Object.keys(localStorage).filter((key) => key.startsWith(prefix))
-      .map(readDraft).filter((draft): draft is ServiceDraft => Boolean(draft))
-      .filter((draft) => !draft.server || draft.syncedValues !== JSON.stringify(draft.values))
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  } catch { return []; }
-}
-
 export function removeDraft(key: string): void {
   localStorage.removeItem(key);
   window.dispatchEvent(new Event('service-drafts-changed'));
