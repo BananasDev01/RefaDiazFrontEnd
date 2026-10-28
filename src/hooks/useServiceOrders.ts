@@ -1,16 +1,16 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from '../contexts/SnackbarContext';
 import {
-  cancelServiceOrder,
   completeServiceOrder,
   createServiceOrder,
+  deleteServiceOrder,
   getServiceOrder,
   listReportedFailureTypes,
   searchServiceOrders,
-  startServiceOrder,
   updateServiceOrder,
 } from '../services/ServiceOrderService';
 import type {
+  ServiceOrderCategory,
   ServiceOrderCreateRequest,
   ServiceOrderSearchParams,
   ServiceOrderUpdateRequest,
@@ -77,44 +77,33 @@ export const useServiceOrderMutations = () => {
     onError: (error: Error) => showSnackbar(`No se pudo completar la orden: ${error.message}`, 'error'),
   });
 
-  const startMutation = useMutation({
-    mutationFn: ({ externalId, expectedVersion }: { externalId: string; expectedVersion: number }) =>
-      startServiceOrder(externalId, expectedVersion),
+  const deleteMutation = useMutation({
+    mutationFn: ({ externalId, expectedVersion, reason }: { externalId: string; expectedVersion: number; reason: string }) =>
+      deleteServiceOrder(externalId, expectedVersion, reason),
     onSuccess: (order) => {
       synchronizeOrder(order);
-      showSnackbar('La orden pasó a taller.', 'success');
+      showSnackbar('Orden eliminada.', 'success');
     },
-    onError: (error: Error) => showSnackbar(`No se pudo iniciar la orden: ${error.message}`, 'error'),
-  });
-
-  const cancelMutation = useMutation({
-    mutationFn: ({ externalId, expectedVersion }: { externalId: string; expectedVersion: number }) =>
-      cancelServiceOrder(externalId, expectedVersion),
-    onSuccess: (order) => {
-      synchronizeOrder(order);
-      showSnackbar('Orden cancelada.', 'success');
-    },
-    onError: (error: Error) => showSnackbar(`No se pudo cancelar la orden: ${error.message}`, 'error'),
+    onError: (error: Error) => showSnackbar(`No se pudo eliminar la orden: ${error.message}`, 'error'),
   });
 
   return {
     createServiceOrder: createMutation.mutateAsync,
     updateServiceOrder: updateMutation.mutateAsync,
-    startServiceOrder: startMutation.mutateAsync,
     completeServiceOrder: completeMutation.mutateAsync,
-    cancelServiceOrder: cancelMutation.mutateAsync,
+    deleteServiceOrder: deleteMutation.mutateAsync,
     isSaving: createMutation.isPending || updateMutation.isPending,
-    isTransitioning: startMutation.isPending || completeMutation.isPending || cancelMutation.isPending,
+    isTransitioning: completeMutation.isPending || deleteMutation.isPending,
   };
 };
 
-const serviceOrderStatuses = ['DRAFT', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
+const serviceOrderStatuses = ['IN_PROGRESS', 'COMPLETED'] as const;
 
-export const useServiceOrderStatusCounts = (clientId?: number) => {
+export const useServiceOrderStatusCounts = (clientId?: number, category?: ServiceOrderCategory) => {
   const queries = useQueries({
     queries: serviceOrderStatuses.map((status) => ({
-      queryKey: serviceOrderQueryKeys.list({ status, clientId, limit: 1, offset: 0 }),
-      queryFn: () => searchServiceOrders({ status, clientId, limit: 1, offset: 0 }),
+      queryKey: serviceOrderQueryKeys.list({ status, clientId, category, limit: 1, offset: 0 }),
+      queryFn: () => searchServiceOrders({ status, clientId, category, limit: 1, offset: 0 }),
     })),
   });
 
@@ -123,7 +112,7 @@ export const useServiceOrderStatusCounts = (clientId?: number) => {
       counts[status] = queries[index].data?.pagination.total;
       return counts;
     },
-    { DRAFT: undefined, IN_PROGRESS: undefined, COMPLETED: undefined, CANCELLED: undefined }
+    { IN_PROGRESS: undefined, COMPLETED: undefined }
   );
 };
 

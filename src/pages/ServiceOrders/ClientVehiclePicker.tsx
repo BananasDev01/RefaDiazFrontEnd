@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DirectionsCarOutlinedIcon from '@mui/icons-material/DirectionsCarOutlined';
 import SearchIcon from '@mui/icons-material/Search';
@@ -7,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { useClient, useClients } from '../../hooks/useClients';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import type { Client } from '../../types/client.types';
+import type { ServiceOrderCategory } from '../../types/serviceOrder.types';
 import ClientCreateDialog from '../Clients/ClientCreateDialog';
 import ClientVehicleDialog from '../Clients/ClientVehicleDialog';
 import { vehicleDetails, vehicleName } from './serviceOrderUtils';
@@ -22,9 +24,11 @@ interface ClientVehiclePickerProps {
   initialClientId?: number | null;
   initialVehicleId?: number | null;
   confirmLabel: string;
-  onConfirm: (clientId: number, clientVehicleId: number) => void;
+  /** A part order only needs the client; the vehicle is `null`. */
+  onConfirm: (clientId: number, clientVehicleId: number | null) => void;
   onCancel?: () => void;
   autoFocus?: boolean;
+  category?: ServiceOrderCategory;
 }
 
 export const ClientVehiclePicker = ({
@@ -34,7 +38,9 @@ export const ClientVehiclePicker = ({
   onConfirm,
   onCancel,
   autoFocus = true,
+  category = 'VEHICLE',
 }: ClientVehiclePickerProps) => {
+  const isPart = category === 'PART';
   const [query, setQuery] = useState('');
   const [selection, setSelection] = useState<Selection>({ clientId: initialClientId, vehicleId: initialVehicleId });
   const [creatingClient, setCreatingClient] = useState(false);
@@ -52,7 +58,7 @@ export const ClientVehiclePicker = ({
   }, [results.data?.data, search, selectedClient]);
 
   const chosenVehicle = selectedClient?.vehicles.find((vehicle) => vehicle.clientVehicleId === selection.vehicleId);
-  const ready = Boolean(selectedClient && chosenVehicle);
+  const ready = Boolean(selectedClient && (isPart || chosenVehicle));
 
   const pick = (client: Client, vehicleId: number) => setSelection((current) => (
     current.clientId === client.id && current.vehicleId === vehicleId
@@ -104,6 +110,29 @@ export const ClientVehiclePicker = ({
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography sx={{ fontSize: 16, fontWeight: 700, color: tone.ink }}>{client.clientName}</Typography>
               <Typography sx={{ color: tone.muted }}>{[client.phoneNumber, client.secondaryPhoneNumber].filter(Boolean).join(' · ')}</Typography>
+              {isPart ? (
+                <ButtonBase
+                  aria-pressed={selection.clientId === client.id}
+                  onClick={() => setSelection({ clientId: client.id, vehicleId: null })}
+                  sx={{
+                    mt: 1.5,
+                    minHeight: 44,
+                    borderRadius: 2.5,
+                    px: 1.75,
+                    gap: 1,
+                    justifyContent: 'flex-start',
+                    border: selection.clientId === client.id ? `2px solid ${tone.primary}` : `1px solid ${tone.borderStrong}`,
+                    bgcolor: selection.clientId === client.id ? '#F0F4FA' : tone.card,
+                    color: selection.clientId === client.id ? tone.primaryDark : tone.text,
+                    fontSize: 14,
+                    fontWeight: 500,
+                    '&:focus-visible': { outline: `2px solid ${tone.primary}`, outlineOffset: 2 },
+                  }}
+                >
+                  <CheckCircleOutlineIcon fontSize="small" />
+                  {selection.clientId === client.id ? 'Cliente elegido' : 'Elegir a este cliente'}
+                </ButtonBase>
+              ) : (
               <Stack spacing={1} sx={{ mt: 1.5 }} role="group" aria-label={`Vehículos de ${client.clientName}`}>
                 {client.vehicles.map((vehicle) => {
                   const selected = selection.clientId === client.id && selection.vehicleId === vehicle.clientVehicleId;
@@ -142,20 +171,23 @@ export const ClientVehiclePicker = ({
                   {client.vehicles.length ? 'Otro vehículo de este cliente' : 'Agregar el vehículo de este cliente'}
                 </Button>
               </Stack>
+              )}
             </Box>
           </Box>
         ))}
         <Box sx={{ px: 2.25, py: 1.75, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
           <Typography sx={{ color: tone.muted }}>¿No aparece?</Typography>
           <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreatingClient(true)} sx={{ height: 40, borderRadius: 2 }}>
-            Registrar cliente y vehículo
+            {isPart ? 'Registrar cliente' : 'Registrar cliente y vehículo'}
           </Button>
         </Box>
       </Box>
 
       <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="flex-end" flexWrap="wrap" useFlexGap>
         <Typography sx={{ color: tone.faint }} aria-live="polite">
-          {ready && selectedClient && chosenVehicle ? [selectedClient.clientName, vehicleName(chosenVehicle), chosenVehicle.color].filter(Boolean).join(' · ') : 'Elige el vehículo que ingresa'}
+          {ready && selectedClient
+            ? [selectedClient.clientName, chosenVehicle && vehicleName(chosenVehicle), chosenVehicle?.color].filter(Boolean).join(' · ')
+            : isPart ? 'Elige al cliente que deja la pieza' : 'Elige el vehículo que ingresa'}
         </Typography>
         {onCancel && <Button onClick={onCancel}>Cancelar</Button>}
         <Button
@@ -163,7 +195,7 @@ export const ClientVehiclePicker = ({
           disableElevation
           endIcon={<ChevronRightIcon />}
           disabled={!ready}
-          onClick={() => { if (selection.clientId && selection.vehicleId) onConfirm(selection.clientId, selection.vehicleId); }}
+          onClick={() => { if (selection.clientId && (isPart || selection.vehicleId)) onConfirm(selection.clientId, isPart ? null : selection.vehicleId); }}
           sx={{ height: 48, px: 2.75, borderRadius: 2.5, fontSize: 15 }}
         >
           {confirmLabel}
@@ -176,13 +208,13 @@ export const ClientVehiclePicker = ({
         onCreated={(client) => {
           setSelection({ clientId: client.id, vehicleId: null });
           setCreatingClient(false);
-          setVehicleFor(client.id);
+          if (!isPart) setVehicleFor(client.id);
         }}
         onUseExisting={(client) => {
           // Pick the registered client and let the operator choose among its vehicles.
-          setSelection({ clientId: client.id, vehicleId: client.vehicles.length === 1 ? client.vehicles[0].clientVehicleId : null });
+          setSelection({ clientId: client.id, vehicleId: !isPart && client.vehicles.length === 1 ? client.vehicles[0].clientVehicleId : null });
           setCreatingClient(false);
-          if (client.vehicles.length === 0) setVehicleFor(client.id);
+          if (!isPart && client.vehicles.length === 0) setVehicleFor(client.id);
         }}
       />
       {vehicleFor !== null && (

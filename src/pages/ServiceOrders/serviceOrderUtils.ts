@@ -67,15 +67,20 @@ export const snapshotPhones = (order: ServiceOrder) => [
   getSnapshotText(order.clientSnapshot, 'secondaryPhoneNumber', 'secondary_phone_number'),
 ].filter(Boolean).join(' · ');
 
-export const snapshotVehicleName = (order: ServiceOrder) => [
+const snapshotVehicleOnly = (order: ServiceOrder) => [
   getSnapshotText(order.vehicleSnapshot, 'brandName', 'brand_name', 'brand', 'marca'),
   getSnapshotText(order.vehicleSnapshot, 'carModelName', 'car_model_name', 'model', 'modelName', 'modelo'),
   getSnapshotText(order.vehicleSnapshot, 'modelYear', 'model_year', 'year'),
 ].filter(Boolean).join(' ') || `Vehículo #${order.vehicleId}`;
 
-export const snapshotColor = (order: ServiceOrder) => getSnapshotText(order.vehicleSnapshot, 'color');
+/** What the order is about: the vehicle, or the loose part's description. */
+export const snapshotVehicleName = (order: ServiceOrder) => (order.category === 'PART'
+  ? order.partDescription?.trim() || 'Pieza sin descripción'
+  : snapshotVehicleOnly(order));
 
-export const snapshotPlate = (order: ServiceOrder) => getSnapshotText(order.vehicleSnapshot, 'plate', 'plates', 'placas');
+export const snapshotColor = (order: ServiceOrder) => (order.category === 'PART' ? null : getSnapshotText(order.vehicleSnapshot, 'color'));
+
+export const snapshotPlate = (order: ServiceOrder) => (order.category === 'PART' ? null : getSnapshotText(order.vehicleSnapshot, 'plate', 'plates', 'placas'));
 
 export const workSummary = (order: ServiceOrder) => (
   order.reportedFailures.length

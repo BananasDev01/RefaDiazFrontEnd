@@ -3,7 +3,6 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
@@ -18,12 +17,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useServiceOrders, useServiceOrderStatusCounts } from '../../hooks/useServiceOrders';
-import type { ServiceOrderSearchParams, ServiceOrderStatus } from '../../types/serviceOrder.types';
-import { draftKey, listDrafts, removeDraft, type ServiceDraft } from './serviceOrderDrafts';
+import type { ServiceOrderCategory, ServiceOrderSearchParams } from '../../types/serviceOrder.types';
 import {
   daysSince,
   detectSearchField,
@@ -37,74 +35,31 @@ import {
   snapshotPlate,
   snapshotVehicleName,
 } from './serviceOrderUtils';
-import { AgePill, PageCanvas, PageContainer, PlateBadge } from './ui';
+import { AgePill, CategoryIcon, PageCanvas, PageContainer, PlateBadge } from './ui';
 import { cardSx, inputSx, tone } from './tokens';
 
 const PAGE_SIZE = 20;
-const tabs: { status: ServiceOrderStatus; label: string; empty: string }[] = [
-  { status: 'IN_PROGRESS', label: 'En taller', empty: 'No hay vehículos en taller' },
-  { status: 'DRAFT', label: 'Borradores', empty: 'No hay borradores' },
+// Deleted orders never show here; old links to removed tabs land on «En progreso».
+const tabs = [
+  { status: 'IN_PROGRESS', label: 'En progreso', empty: 'No hay órdenes en progreso' },
   { status: 'COMPLETED', label: 'Completadas', empty: 'No hay órdenes completadas' },
-  { status: 'CANCELLED', label: 'Canceladas', empty: 'No hay órdenes canceladas' },
+] as const;
+type ListStatus = (typeof tabs)[number]['status'];
+const isStatus = (value: string | null): value is ListStatus => tabs.some((tab) => tab.status === value);
+const categoryFilters: { value: ServiceOrderCategory | null; label: string }[] = [
+  { value: null, label: 'Todas' },
+  { value: 'VEHICLE', label: 'Vehículos' },
+  { value: 'PART', label: 'Piezas' },
 ];
-const isStatus = (value: string | null): value is ServiceOrderStatus => tabs.some((tab) => tab.status === value);
+const isCategory = (value: string | null): value is ServiceOrderCategory => value === 'VEHICLE' || value === 'PART';
 const columns = '110px minmax(0, 1.2fr) minmax(0, 1.6fr) 150px 130px 24px';
-
-const draftUrl = (draft: ServiceDraft, returnUrl: string) => (draft.server
-  ? `/service-orders/${draft.externalId}?returnTo=${encodeURIComponent(returnUrl)}`
-  : `/service-orders/new?draft=${draft.externalId}&returnTo=${encodeURIComponent(returnUrl)}`);
-
-const LocalDrafts = ({ returnUrl }: { returnUrl: string }) => {
-  const [drafts, setDrafts] = useState(listDrafts);
-  const [expanded, setExpanded] = useState(false);
-  useEffect(() => {
-    const refresh = () => setDrafts(listDrafts());
-    window.addEventListener('service-drafts-changed', refresh);
-    window.addEventListener('storage', refresh);
-    return () => { window.removeEventListener('service-drafts-changed', refresh); window.removeEventListener('storage', refresh); };
-  }, []);
-  if (!drafts.length) return null;
-  const [first] = drafts;
-  const describe = (draft: ServiceDraft) => `«${draft.values.reportedFailureSummary.trim() || 'Sin motivo de ingreso'}», ${new Date(draft.updatedAt).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`;
-
-  return (
-    <Box role="status" sx={{ border: 1, borderColor: tone.warnBorder, bgcolor: tone.warnTint, color: tone.warnInk, borderRadius: 2.5, px: 1.75, py: 1.25 }}>
-      <Stack direction="row" alignItems="center" spacing={1.5}>
-        <ErrorOutlineIcon fontSize="small" />
-        <Typography sx={{ flex: 1, fontSize: 14 }}>
-          {drafts.length === 1 ? `1 captura sin enviar en este equipo · ${describe(first)}` : `${drafts.length} capturas sin enviar en este equipo`}
-        </Typography>
-        {drafts.length === 1
-          ? <Button component={Link} to={draftUrl(first, returnUrl)} size="small" sx={{ color: tone.warnInk, fontWeight: 700 }}>Continuar</Button>
-          : <Button size="small" onClick={() => setExpanded((value) => !value)} sx={{ color: tone.warnInk, fontWeight: 700 }}>{expanded ? 'Ocultar' : 'Ver capturas'}</Button>}
-      </Stack>
-      {(expanded || drafts.length === 1) && (
-        <Stack spacing={0.5} sx={{ mt: drafts.length === 1 ? 0 : 1 }}>
-          {drafts.map((draft) => (
-            <Stack key={draft.externalId} direction="row" alignItems="center" spacing={1} sx={{ pl: 4 }}>
-              {drafts.length > 1 && <Typography sx={{ flex: 1, fontSize: 13 }}>{describe(draft)}</Typography>}
-              {drafts.length > 1 && <Button component={Link} to={draftUrl(draft, returnUrl)} size="small" sx={{ color: tone.warnInk }}>Continuar</Button>}
-              {!draft.server && (
-                <Button
-                  size="small"
-                  sx={{ color: tone.dangerInk, ml: drafts.length === 1 ? 'auto' : 0 }}
-                  onClick={() => { if (window.confirm('¿Eliminar esta captura local? No se puede deshacer.')) removeDraft(draftKey(draft.externalId)); }}
-                >
-                  Eliminar copia
-                </Button>
-              )}
-            </Stack>
-          ))}
-        </Stack>
-      )}
-    </Box>
-  );
-};
 
 export const ServiceOrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusParam = searchParams.get('status');
-  const status: ServiceOrderStatus = isStatus(statusParam) ? statusParam : 'IN_PROGRESS';
+  const status: ListStatus = isStatus(statusParam) ? statusParam : 'IN_PROGRESS';
+  const categoryParam = searchParams.get('category');
+  const category = isCategory(categoryParam) ? categoryParam : undefined;
   const rawPage = Number(searchParams.get('page') ?? 0);
   const page = Number.isSafeInteger(rawPage) && rawPage >= 0 ? rawPage : 0;
   const query = searchParams.get('q') ?? '';
@@ -126,6 +81,7 @@ export const ServiceOrdersPage = () => {
   const filters = useMemo<ServiceOrderSearchParams>(() => {
     const base: ServiceOrderSearchParams = {
       status,
+      category,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
       dateFrom: dateFrom || undefined,
@@ -133,10 +89,10 @@ export const ServiceOrdersPage = () => {
     };
     if (debouncedQuery) base[searchField] = debouncedQuery;
     return base;
-  }, [dateFrom, dateTo, debouncedQuery, page, searchField, status]);
+  }, [category, dateFrom, dateTo, debouncedQuery, page, searchField, status]);
 
   const { data, isLoading, isFetching, isError, error, refetch } = useServiceOrders(filters, !invalidDates);
-  const counts = useServiceOrderStatusCounts();
+  const counts = useServiceOrderStatusCounts(undefined, category);
   const orders = data?.data ?? [];
   const total = data?.pagination.total ?? 0;
   const hasFilters = Boolean(query || dateFrom || dateTo);
@@ -162,8 +118,6 @@ export const ServiceOrdersPage = () => {
           </Button>
         </Box>
 
-        <LocalDrafts returnUrl={returnUrl} />
-
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
           <Box role="tablist" aria-label="Estado de las órdenes" sx={[cardSx, { display: 'flex', p: 0.5, gap: 0.25, borderRadius: 2.5 }]}>
             {tabs.map((tab) => {
@@ -180,6 +134,22 @@ export const ServiceOrdersPage = () => {
                   <Box component="span" sx={{ minWidth: 22, px: 0.75, borderRadius: 999, fontSize: 12, fontWeight: 700, bgcolor: selected ? 'rgba(255,255,255,0.22)' : tone.ground, color: selected ? '#FFFFFF' : tone.muted }}>
                     {counts[tab.status] ?? '…'}
                   </Box>
+                </ButtonBase>
+              );
+            })}
+          </Box>
+          <Box role="group" aria-label="Tipo de orden" sx={[cardSx, { display: 'flex', p: 0.5, gap: 0.25, borderRadius: 2.5 }]}>
+            {categoryFilters.map((filter) => {
+              const selected = (filter.value ?? undefined) === category;
+              return (
+                <ButtonBase
+                  key={filter.label}
+                  aria-pressed={selected}
+                  onClick={() => update({ category: filter.value })}
+                  sx={{ height: 36, px: 1.5, gap: 0.75, borderRadius: 1.75, fontSize: 14, fontWeight: 500, bgcolor: selected ? tone.primaryTint : 'transparent', color: selected ? tone.primaryDark : tone.muted, '&:focus-visible': { outline: `2px solid ${tone.primary}`, outlineOffset: 1 } }}
+                >
+                  {filter.value && <CategoryIcon category={filter.value} />}
+                  {filter.label}
                 </ButtonBase>
               );
             })}
@@ -215,7 +185,7 @@ export const ServiceOrdersPage = () => {
           >
             {dateLabel}
           </Button>
-          {hasFilters && <Button onClick={() => setSearchParams({ status }, { replace: true })}>Limpiar</Button>}
+          {hasFilters && <Button onClick={() => setSearchParams(category ? { status, category } : { status }, { replace: true })}>Limpiar</Button>}
         </Box>
 
         <Popover open={Boolean(dateAnchor)} anchorEl={dateAnchor} onClose={() => setDateAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
@@ -238,7 +208,7 @@ export const ServiceOrdersPage = () => {
           <Box sx={[cardSx, { overflowX: 'auto' }]}>
             <Box sx={{ minWidth: 900 }} aria-busy={isFetching}>
               <Box sx={{ display: 'grid', gridTemplateColumns: columns, gap: 2, px: 2.5, py: 1.5, bgcolor: tone.subtle, borderBottom: 1, borderColor: tone.border, fontSize: 12, fontWeight: 700, color: tone.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                <span>Folio</span><span>Cliente</span><span>Vehículo y motivo</span><span>{inWorkshop ? 'En taller' : 'Ingreso'}</span><Box component="span" sx={{ textAlign: 'right' }}>Total</Box><span />
+                <span>Folio</span><span>Cliente</span><span>Vehículo o pieza y motivo</span><span>{inWorkshop ? 'Abierta' : 'Ingreso'}</span><Box component="span" sx={{ textAlign: 'right' }}>Total</Box><span />
               </Box>
               {isLoading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
@@ -265,8 +235,9 @@ export const ServiceOrdersPage = () => {
                       <Box component="span" sx={{ display: 'block', color: tone.faint, fontSize: 13 }}>{snapshotPhones(order)}</Box>
                     </Box>
                     <Box component="span" sx={{ minWidth: 0 }}>
-                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box component="span" sx={{ fontWeight: 500 }}>{snapshotVehicleName(order)}</Box>
+                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                        <CategoryIcon category={order.category} />
+                        <Box component="span" title={snapshotVehicleName(order)} sx={{ fontWeight: 500, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{snapshotVehicleName(order)}</Box>
                         {snapshotColor(order) && <Box component="span" sx={{ color: tone.muted, fontSize: 13 }}>{snapshotColor(order)}</Box>}
                         <PlateBadge plate={snapshotPlate(order)} size="sm" />
                       </Box>

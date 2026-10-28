@@ -19,6 +19,9 @@ export interface ServiceOrderPdfData {
   clientName: string;
   phoneNumber: string;
   reportedFailureSummary: string;
+  /** Loose parts print their description instead of the vehicle row. */
+  isPart: boolean;
+  partDescription: string;
   brand: string;
   model: string;
   modelYear: string;
@@ -180,6 +183,8 @@ export const mapServiceOrderToPdfData = (
     phoneNumber: [getSnapshotText(order.clientSnapshot, 'phoneNumber', 'phone_number', 'phone', 'telefono'), getSnapshotText(order.clientSnapshot, 'secondaryPhoneNumber', 'secondary_phone_number')].filter(Boolean).join(' / '),
     // FALLA prints only what the customer reported; the selected lines already list the work.
     reportedFailureSummary: order.reportedFailureSummary?.trim() ?? '',
+    isPart: order.category === 'PART',
+    partDescription: order.category === 'PART' ? order.partDescription?.trim() ?? '' : '',
     brand: getSnapshotText(vehicle, 'brand', 'brandName', 'brand_name', 'marca')
       ?? nestedSnapshotText(vehicle, 'carModel', 'brandName', 'brand_name')
       ?? nestedSnapshotText(asRecord(vehicle.carModel), 'brand', 'name')

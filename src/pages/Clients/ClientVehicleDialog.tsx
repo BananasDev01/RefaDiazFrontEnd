@@ -180,17 +180,15 @@ const ClientVehicleDialog = ({ clientId, open, onClose, onCreated }: ClientVehic
                       helperText={duplicate ? 'Este cliente ya tiene un vehículo con estas placas.' : errors.plate?.message}
                       slotProps={{ htmlInput: { style: { textTransform: 'uppercase' } } }}
                     />
+                    {/* A loose part is a «Pieza» order now, so only a real vehicle without plates gets a placeholder. */}
                     <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                      {['SIN PLACAS', 'A LA MANO'].map((placeholder) => (
-                        <Chip
-                          key={placeholder}
-                          label={placeholder}
-                          size="small"
-                          variant={normalizePlate(field.value) === normalizePlate(placeholder) ? 'filled' : 'outlined'}
-                          color="primary"
-                          onClick={() => setValue('plate', placeholder, { shouldDirty: true, shouldValidate: true })}
-                        />
-                      ))}
+                      <Chip
+                        label="SIN PLACAS"
+                        size="small"
+                        variant={normalizePlate(field.value) === 'SINPLACAS' ? 'filled' : 'outlined'}
+                        color="primary"
+                        onClick={() => setValue('plate', 'SIN PLACAS', { shouldDirty: true, shouldValidate: true })}
+                      />
                     </Box>
                   </>
                 )}

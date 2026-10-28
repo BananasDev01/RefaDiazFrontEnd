@@ -6,8 +6,16 @@ const validCurrency = (value: number | null | undefined) => value == null || (
 );
 
 export const serviceOrderSchema: yup.ObjectSchema<ServiceOrderFormValues> = yup.object({
+  category: yup.mixed<'VEHICLE' | 'PART'>().oneOf(['VEHICLE', 'PART']).required(),
   clientId: yup.number().nullable().required('Selecciona un cliente.'),
-  clientVehicleId: yup.number().nullable().required('Selecciona el vehículo que ingresará al taller.'),
+  clientVehicleId: yup.number().nullable().defined().when('category', {
+    is: 'VEHICLE',
+    then: (schema) => schema.required('Selecciona el vehículo que ingresará al taller.'),
+  }),
+  partDescription: yup.string().trim().max(500, 'Usa máximo 500 caracteres.').defined().when('category', {
+    is: 'PART',
+    then: (schema) => schema.required('Describe la pieza que dejan.'),
+  }),
   serviceDate: yup.string().required('La fecha es obligatoria.'),
   reportedFailureSummary: yup.string().trim().max(4000).defined(),
   workManagerUserId: yup.string().defined(),

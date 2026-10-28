@@ -11,7 +11,7 @@ export const PHONE_DIGITS = 10;
 export const phoneDigits = (value?: string | null) => (value ?? '').replace(/\D/g, '').slice(0, PHONE_DIGITS);
 /** Same normalization as the backend: uppercase letters and digits only. */
 export const normalizePlate = (value?: string | null) => (value ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-/** Shop placeholders that many vehicles may share: no plates, or a part brought by hand. */
+/** Placeholders many vehicles may share: no plates, and the legacy «A LA MANO» of older records. */
 export const REPEATABLE_PLATES = ['SINPLACAS', 'ALAMANO'];
 export const isRepeatablePlate = (value?: string | null) => REPEATABLE_PLATES.includes(normalizePlate(value));
 
@@ -55,7 +55,7 @@ export const clientVehicleSchema: yup.ObjectSchema<ClientVehicleFormValues> = yu
   plate: yup
     .string()
     .trim()
-    .required('Captura las placas; usa «SIN PLACAS» o «A LA MANO» si no tiene.')
+    .required('Captura las placas; usa «SIN PLACAS» si no tiene.')
     .max(20, 'Las placas no pueden exceder 20 caracteres.'),
   comments: yup.string().trim().max(700).defined(),
 });

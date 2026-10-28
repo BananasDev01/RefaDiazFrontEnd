@@ -2,7 +2,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { Box, ButtonBase, Checkbox, Collapse, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { memo, useId, useState } from 'react';
-import { Controller, useFormContext, useFormState } from 'react-hook-form';
+import { Controller, useFormContext, useFormState, useWatch } from 'react-hook-form';
 import type { ServiceOrderFormValues } from '../../../types/serviceOrder.types';
 import { AIR_PRESSURE_WARNING, COMPRESSION_WARNING } from '../serviceOrderText';
 import { FieldLabel, SectionCard } from '../ui';
@@ -40,12 +40,14 @@ export const ConditionsSection = memo(({ readOnly }: { readOnly: boolean }) => {
   const [privateOpen, setPrivateOpen] = useState(() => Boolean(getValues('internalNote')));
   const levelLabelId = useId();
   const privateId = useId();
+  // Engine warnings only apply when the vehicle is in the shop, never to a loose part.
+  const isPart = useWatch({ control, name: 'category' }) === 'PART';
 
   return (
-    <SectionCard id="so-condiciones" title="Condiciones del vehículo">
+    <SectionCard id="so-condiciones" title={isPart ? 'Condiciones de la pieza' : 'Condiciones del vehículo'}>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: 2.5 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Box>
+          {!isPart && <Box>
             <FieldLabel>Advertencias para el cliente</FieldLabel>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               <Controller
@@ -59,7 +61,7 @@ export const ConditionsSection = memo(({ readOnly }: { readOnly: boolean }) => {
                 render={({ field }) => <WarningToggle checked={field.value} onChange={field.onChange} label={AIR_PRESSURE_WARNING} disabled={readOnly} />}
               />
             </Box>
-          </Box>
+          </Box>}
           <Controller
             name="radiatorSerialNumber"
             control={control}

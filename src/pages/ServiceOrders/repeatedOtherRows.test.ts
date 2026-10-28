@@ -3,7 +3,7 @@ import { buildWriteFields,createFormValues } from './serviceOrderFormData';
 import { mapServiceOrderToPdfData } from './pdf/serviceOrderPdfData';
 import type { ReportedFailureType,ServiceOrder } from '../../types/serviceOrder.types';
 const types:ReportedFailureType[]=[{id:13,code:'OTHER',label:'Otros',displayOrder:130,allowsFreeText:true,active:true}];
-const order:ServiceOrder={id:1,externalId:'test',provisionalReference:'TEST',folioSeries:'SER',folioNumber:100,status:'DRAFT',clientVehicleId:1,clientId:1,vehicleId:1,compressionLeakDetected:false,taxAmount:0,total:600,subtotal:600,lineTotalsMode:'LINES',clientSnapshot:{},vehicleSnapshot:{},legalTextSnapshot:{},version:1,items:[],reportedFailures:[100,200,300].map((amount,index)=>({id:index+1,externalId:`row-${index}`,reportedFailureTypeId:13,failureCodeSnapshot:'OTHER',labelSnapshot:'Otros',displayOrderSnapshot:130,amount,observation:`Detalle ${index+1}`}))};
+const order:ServiceOrder={id:1,externalId:'test',provisionalReference:'TEST',folioSeries:'SER',folioNumber:100,status:'IN_PROGRESS',category:'VEHICLE',clientVehicleId:1,clientId:1,vehicleId:1,compressionLeakDetected:false,taxAmount:0,total:600,subtotal:600,lineTotalsMode:'LINES',clientSnapshot:{},vehicleSnapshot:{},legalTextSnapshot:{},version:1,items:[],reportedFailures:[100,200,300].map((amount,index)=>({id:index+1,externalId:`row-${index}`,reportedFailureTypeId:13,failureCodeSnapshot:'OTHER',labelSnapshot:'Otros',displayOrderSnapshot:130,amount,observation:`Detalle ${index+1}`}))};
 describe('renglones Otros repetibles',()=>{
   it('recupera y guarda todos los renglones sin confundir UUIDs, importes u observaciones',()=>{
     const values=createFormValues(types,order);

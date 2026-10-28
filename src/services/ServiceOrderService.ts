@@ -44,16 +44,11 @@ export const completeServiceOrder = async (
   return axiosInstance.post(`${SERVICES_ENDPOINT}/${externalId}/complete`, { expectedVersion });
 };
 
-export const startServiceOrder = async (
+/** Deletes the order from lists and searches; the server keeps it, with the reason, for the folio trail. */
+export const deleteServiceOrder = async (
   externalId: string,
-  expectedVersion: number
+  expectedVersion: number,
+  reason: string
 ): Promise<ServiceOrder> => {
-  return axiosInstance.post(`${SERVICES_ENDPOINT}/${externalId}/start`, { expectedVersion });
-};
-
-export const cancelServiceOrder = async (
-  externalId: string,
-  expectedVersion: number
-): Promise<ServiceOrder> => {
-  return axiosInstance.post(`${SERVICES_ENDPOINT}/${externalId}/cancel`, { expectedVersion });
+  return axiosInstance.post(`${SERVICES_ENDPOINT}/${externalId}/cancel`, { expectedVersion, reason });
 };

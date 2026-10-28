@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { ReportedFailureType, ServiceOrder, ServiceOrderFormValues } from '../../types/serviceOrder.types';
+import type { ReportedFailureType, ServiceOrder, ServiceOrderCategory, ServiceOrderFormValues } from '../../types/serviceOrder.types';
 import { decodeServiceOrderLine, readServiceOrderLine } from './serviceOrderLineCodec';
 import { AIR_PRESSURE_WARNING, mergeObservations, sumLineAmounts } from './serviceOrderText';
 
@@ -15,7 +15,8 @@ const nullableText = (value: string) => value.trim() || undefined;
 export const createFormValues = (
   failureTypes: ReportedFailureType[],
   order?: ServiceOrder,
-  initialClientId?: number | null
+  initialClientId?: number | null,
+  initialCategory: ServiceOrderCategory = 'VEHICLE'
 ): ServiceOrderFormValues => {
   const selectedFailures = order?.reportedFailures ?? [];
   const nativeContract = order?.lineTotalsMode != null;
@@ -25,8 +26,10 @@ export const createFormValues = (
   const legacyTargetId = hasStructuredLines ? null : selectedFailures[0]?.reportedFailureTypeId ?? null;
 
   return {
+  category: order?.category ?? initialCategory,
   clientId: order?.clientId ?? initialClientId ?? null,
   clientVehicleId: order?.clientVehicleId ?? null,
+  partDescription: order?.partDescription ?? '',
   serviceDate: order?.serviceDate ?? localDate(),
   reportedFailureSummary: order?.reportedFailureSummary ?? '',
   workManagerUserId: order?.workManagerUserId ?? '',
@@ -79,8 +82,14 @@ export const buildWriteFields = (values: ServiceOrderFormValues, failureTypes: R
     })
     .join('\n');
 
+  const isPart = values.category === 'PART';
+
   return {
-  clientVehicleId: values.clientVehicleId as number,
+  category: values.category,
+  // A loose part is tied to the client only; a vehicle order to the client's vehicle.
+  ...(isPart
+    ? { clientId: values.clientId as number, partDescription: values.partDescription.trim() }
+    : { clientVehicleId: values.clientVehicleId as number }),
   serviceDate: values.serviceDate,
   reportedFailureSummary: values.reportedFailureSummary.trim(),
   workManagerUserId: nullableText(values.workManagerUserId),
@@ -88,8 +97,9 @@ export const buildWriteFields = (values: ServiceOrderFormValues, failureTypes: R
   vehicleOperationObservations: nullableText(vehicleOperationObservations),
   importantInformation: nullableText(values.importantInformation),
   informationalNote: nullableText(values.informationalNote),
-  compressionLeakDetected: values.compressionLeakDetected,
-  coolingSystemAirPressureDetected: values.coolingSystemAirPressureDetected,
+  // Engine warnings only make sense when the vehicle is in the shop.
+  compressionLeakDetected: !isPart && values.compressionLeakDetected,
+  coolingSystemAirPressureDetected: !isPart && values.coolingSystemAirPressureDetected,
   radiatorSerialNumber: nullableText(values.radiatorSerialNumber),
   radiatorObstructionLevel: values.radiatorObstructionLevel ?? 0,
   subtotal: values.preserveLegacySubtotal ? values.subtotal ?? 0 : lineSubtotal,
