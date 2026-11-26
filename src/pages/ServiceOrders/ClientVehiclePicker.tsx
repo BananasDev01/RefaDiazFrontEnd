@@ -204,6 +204,7 @@ export const ClientVehiclePicker = ({
 
       <ClientCreateDialog
         open={creatingClient}
+        initialQuery={query}
         onClose={() => setCreatingClient(false)}
         onCreated={(client) => {
           setSelection({ clientId: client.id, vehicleId: null });

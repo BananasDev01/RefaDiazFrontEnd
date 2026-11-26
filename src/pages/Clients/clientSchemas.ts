@@ -9,6 +9,12 @@ const currentYear = new Date().getFullYear();
 export const PHONE_DIGITS = 10;
 /** Keeps only digits, capped at a 10-digit Mexican phone number. */
 export const phoneDigits = (value?: string | null) => (value ?? '').replace(/\D/g, '').slice(0, PHONE_DIGITS);
+/** What the operator searched becomes the new client's phone (any digits) or name (any text). */
+export const clientPrefillFromSearch = (query?: string | null) => {
+  const text = (query ?? '').trim();
+  if (!text) return {};
+  return /^[\d\s()+-]+$/.test(text) ? { phoneNumber: phoneDigits(text) } : { clientName: text };
+};
 /** Same normalization as the backend: uppercase letters and digits only. */
 export const normalizePlate = (value?: string | null) => (value ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 /** Placeholders many vehicles may share: no plates, and the legacy «A LA MANO» of older records. */

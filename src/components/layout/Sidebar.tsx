@@ -1,7 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Drawer as MuiDrawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider, styled, type Theme, type CSSObject, IconButton, Tooltip } from '@mui/material';
+import { Box, Drawer as MuiDrawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider, styled, type Theme, type CSSObject, IconButton, Tooltip } from '@mui/material';
+import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import { CURRENT_RELEASE } from '../../constants/releases';
 import { mainNavItems, adminNavItems } from '../../constants/navItems.tsx';
 
 const drawerWidth = 240;
@@ -111,6 +113,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ open, handleDrawerClose, isMob
             </Tooltip>
           </ListItem>
         ))}
+      </List>
+      <Box sx={{ flex: 1 }} />
+      <Divider />
+      <List>
+        <ListItem disablePadding sx={{ display: 'block' }}>
+          <Tooltip title={`Novedades · versión ${CURRENT_RELEASE.version}`} placement="right" disableHoverListener={showLabels}>
+            <ListItemButton
+              onClick={() => handleNavigate('/releases')}
+              sx={{ minHeight: 48, justifyContent: showLabels ? 'initial' : 'center', px: 2.5 }}
+            >
+              <ListItemIcon sx={{ minWidth: 0, mr: showLabels ? 3 : 'auto', justifyContent: 'center', color: 'primary.main' }}>
+                <AutoAwesomeOutlinedIcon />
+              </ListItemIcon>
+              <ListItemText primary="Novedades" sx={{ opacity: showLabels ? 1 : 0 }} />
+              {showLabels && (
+                <Box component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>
+                  v{CURRENT_RELEASE.version}
+                </Box>
+              )}
+            </ListItemButton>
+          </Tooltip>
+        </ListItem>
       </List>
     </>
   );

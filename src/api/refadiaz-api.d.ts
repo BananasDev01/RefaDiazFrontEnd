@@ -213,6 +213,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/services/quick-phrases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar las frases rápidas del equipo */
+        get: operations["listServiceQuickPhrases"];
+        /**
+         * Reemplazar la lista completa de frases rápidas
+         * @description Edita, reordena, agrega y quita frases en una sola operación. Las frases que no vengan en la lista se desactivan.
+         */
+        put: operations["replaceServiceQuickPhrases"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/services/{serviceExternalId}": {
         parameters: {
             query?: never;
@@ -270,6 +291,26 @@ export interface paths {
          * @description Las órdenes ya nacen `IN_PROGRESS`; se conserva para pantallas anteriores y no cambia nada.
          */
         post: operations["startService"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/services/{serviceExternalId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restaurar un servicio eliminado
+         * @description Regresa una orden `CANCELLED` a `COMPLETED` si ya se había completado, o a `IN_PROGRESS`.
+         */
+        post: operations["restoreService"];
         delete?: never;
         options?: never;
         head?: never;
@@ -627,6 +668,8 @@ export interface components {
             clientId?: number;
             /** @description Solo para PART */
             partDescription?: string;
+            /** @description Nota privada única del taller; null la borra y omitirla la conserva */
+            internalNote?: string | null;
             /** Format: date */
             serviceDate?: string;
             workManagerUserId?: string;
@@ -673,6 +716,21 @@ export interface components {
         ServiceCancelRequest: {
             expectedVersion: number;
             reason: string;
+        };
+        ServiceQuickPhrase: {
+            /** Format: uuid */
+            externalId: string;
+            phrase: string;
+            displayOrder: number;
+        };
+        ServiceQuickPhraseListRequest: {
+            /** @enum {string} */
+            field?: "IMPORTANT_INFORMATION";
+            phrases: {
+                /** Format: uuid */
+                externalId?: string | null;
+                phrase: string;
+            }[];
         };
         ReportedFailureType: {
             id: number;
@@ -728,6 +786,8 @@ export interface components {
             category: components["schemas"]["ServiceCategory"];
             partDescription?: components["schemas"]["NullableString"];
             cancellationReason?: components["schemas"]["NullableString"];
+            cancelledByName?: components["schemas"]["NullableString"];
+            internalNote?: components["schemas"]["NullableString"];
             serviceDate?: components["schemas"]["NullableDate"];
             clientVehicleId?: number | null;
             clientId: number;
@@ -1570,6 +1630,59 @@ export interface operations {
             500: components["responses"]["ServerError"];
         };
     };
+    listServiceQuickPhrases: {
+        parameters: {
+            query?: {
+                field?: "IMPORTANT_INFORMATION";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Frases activas en su orden */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceQuickPhrase"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    replaceServiceQuickPhrases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceQuickPhraseListRequest"];
+            };
+        };
+        responses: {
+            /** @description Lista resultante */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceQuickPhrase"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["ServerError"];
+        };
+    };
     getService: {
         parameters: {
             query?: never;
@@ -1670,6 +1783,34 @@ export interface operations {
         requestBody: components["requestBodies"]["VersionTransition"];
         responses: {
             /** @description Servicio iniciado o reintento idempotente */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    restoreService: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serviceExternalId: components["parameters"]["ServiceExternalIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["VersionTransition"];
+        responses: {
+            /** @description Servicio restaurado o reintento idempotente */
             200: {
                 headers: {
                     [name: string]: unknown;

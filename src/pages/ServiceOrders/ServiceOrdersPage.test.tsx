@@ -84,8 +84,32 @@ describe('listado de órdenes', () => {
     expect(requests.every((params) => !params.get('folio'))).toBe(true);
   });
 
-  it('busca por folio con números cortos', async () => {
+  it('los números cortos (folio o serie) van a la búsqueda general', async () => {
     renderList('/service-orders?q=4861');
-    await waitFor(() => expect(requests.some((params) => params.get('folio') === '4861')).toBe(true), { timeout: 2000 });
+    await waitFor(() => expect(requests.some((params) => params.get('q') === '4861')).toBe(true), { timeout: 2000 });
+    expect(requests.every((params) => !params.get('folio'))).toBe(true);
+  });
+
+  it('destaca el modelo del vehículo antes que el cliente', async () => {
+    renderList();
+    const row = await screen.findByRole('link', { name: /4861/ });
+    const text = row.textContent ?? '';
+    expect(text.indexOf('Pathfinder')).toBeLessThan(text.indexOf('Pedro Antonio Félix'));
+  });
+
+  it('avisa cuando lo buscado es un folio eliminado y abre la vista de eliminadas', async () => {
+    server.use(http.get(`${apiBaseUrl}/services`, ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      requests.push(params);
+      const deleted = { ...order, folioNumber: 5002, status: 'CANCELLED' as const, cancelledAt: '2026-11-25T18:28:00Z', cancelledByName: 'Eloísa Díaz', cancellationReason: 'Duplicada' };
+      const listed = params.get('status') === 'CANCELLED' ? [deleted] : [];
+      return HttpResponse.json({ data: params.get('limit') === '1' ? [] : listed, pagination: { limit: 20, offset: 0, total: listed.length } });
+    }));
+    renderList('/service-orders?q=5002');
+    expect(await screen.findByText(/coincide, pero fue eliminado/, {}, { timeout: 3000 })).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ver eliminadas' })[0]);
+    expect(await screen.findByRole('heading', { name: 'Órdenes eliminadas' })).toBeInTheDocument();
+    expect(await screen.findByText('«Duplicada»')).toBeInTheDocument();
+    expect(screen.getByText('Por Eloísa Díaz')).toBeInTheDocument();
   });
 });

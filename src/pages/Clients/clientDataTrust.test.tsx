@@ -7,7 +7,7 @@ import { getMockClient } from '../../mocks/handlers';
 import ClientCreateDialog from './ClientCreateDialog';
 import ClientEditDialog from './ClientEditDialog';
 import ClientVehicleDialog from './ClientVehicleDialog';
-import { isRepeatablePlate, normalizePlate } from './clientSchemas';
+import { clientPrefillFromSearch, isRepeatablePlate, normalizePlate } from './clientSchemas';
 
 const wrap = (node: ReactNode) => render(
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
@@ -21,6 +21,17 @@ describe('confianza en los datos de clientes', { timeout: 20_000 }, () => {
     expect(isRepeatablePlate('a la mano')).toBe(true);
     expect(isRepeatablePlate('Sin Placas')).toBe(true);
     expect(isRepeatablePlate('RKU483B')).toBe(false);
+  });
+
+  it('lo buscado pre-llena el celular si son números y el nombre si es texto', () => {
+    expect(clientPrefillFromSearch('812 504-95')).toEqual({ phoneNumber: '81250495' });
+    expect(clientPrefillFromSearch('Juan Pérez')).toEqual({ clientName: 'Juan Pérez' });
+    expect(clientPrefillFromSearch('  ')).toEqual({});
+  });
+
+  it('el modal de nuevo cliente abre con lo que se buscó', async () => {
+    wrap(<ClientCreateDialog open initialQuery="Juan Pérez" onClose={vi.fn()} onCreated={vi.fn()} />);
+    expect(await screen.findByRole('textbox', { name: 'Nombre del cliente' })).toHaveValue('Juan Pérez');
   });
 
   it('avisa que el celular ya existe y ofrece usar ese expediente en lugar de duplicarlo', async () => {

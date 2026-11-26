@@ -7,7 +7,6 @@ export interface ServiceDraft {
   values: ServiceOrderFormValues;
   server?: ServiceOrder;
   syncedValues?: string;
-  noteId?: string;
 }
 
 export function draftPrefix(): string {

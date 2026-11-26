@@ -23,3 +23,10 @@ afterEach(() => {
 afterAll(() => {
   server.close();
 });
+
+// jsdom has no layout; ProseMirror asks text ranges for their rectangles when it scrolls to the cursor.
+const emptyRects = () => Object.assign([] as DOMRect[], { item: () => null }) as unknown as DOMRectList;
+if (typeof Range !== 'undefined' && !Range.prototype.getClientRects) {
+  Range.prototype.getClientRects = emptyRects;
+  Range.prototype.getBoundingClientRect = () => new DOMRect();
+}

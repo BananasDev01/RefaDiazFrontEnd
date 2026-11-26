@@ -77,14 +77,14 @@ describe('editor de órdenes', { timeout: 20_000 }, () => {
     expect(screen.getByRole('heading', { name: 'Orden 4861' })).toBeInTheDocument();
     expect(await screen.findByText('Ford Lobo 2006')).toBeInTheDocument();
     expect(screen.getByText('Pedro Antonio Félix', { selector: 'p' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Servicio radiador' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('checkbox', { name: 'Servicio radiador' })).toBeChecked();
     expect(screen.getByRole('textbox', { name: 'Observaciones de Servicio radiador' })).toHaveValue('Lavado y prueba de presión.');
     expect(headerTotal()).toHaveTextContent('$1,160.00');
   });
 
   it('marcar una falla agrega su partida y el IVA sigue al subtotal', async () => {
     renderEditor();
-    fireEvent.click(screen.getByRole('button', { name: 'Tapón' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Tapón' }));
     const amount = screen.getByRole('textbox', { name: 'Costo de Tapón' });
     fireEvent.focus(amount);
     fireEvent.change(amount, { target: { value: '500' } });
@@ -114,6 +114,57 @@ describe('editor de órdenes', { timeout: 20_000 }, () => {
     expect(screen.queryByRole('textbox', { name: 'Observaciones de Servicio radiador' })).not.toBeInTheDocument();
     fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Deshacer' }));
     expect(screen.getByRole('textbox', { name: 'Observaciones de Servicio radiador' })).toHaveValue('Lavado y prueba de presión.');
+  });
+
+  it('marcar un concepto abre sus campos en el mismo renglón con el cursor en observaciones', async () => {
+    renderEditor();
+    expect(screen.queryByRole('textbox', { name: 'Observaciones de Tapón' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Tapón'));
+    expect(screen.getByRole('checkbox', { name: 'Tapón' })).toBeChecked();
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Observaciones de Tapón' })).toHaveFocus());
+  });
+
+  it('inserta una frase rápida como viñeta en información importante', async () => {
+    server.use(http.get(`${apiBaseUrl}/services/quick-phrases`, () => HttpResponse.json([
+      { externalId: '3f0a7a52-6d2c-4c71-9d0f-1a2b3c4d5e6f', phrase: 'CLIMA SÍ FUNCIONA', displayOrder: 1 },
+    ])));
+    renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: 'Frases' }));
+    fireEvent.click(await screen.findByRole('button', { name: /CLIMA SÍ FUNCIONA/ }));
+    await waitFor(() => expect(document.querySelector('.tiptap li')).toHaveTextContent('CLIMA SÍ FUNCIONA'));
+    // The menu stays open to insert several phrases; the save button sits behind it.
+    expect(screen.getByRole('button', { name: 'Guardar cambios', hidden: true })).toBeEnabled();
+  });
+
+  it('edita la lista de frases desde el mismo menú', async () => {
+    let saved: unknown = null;
+    server.use(
+      http.get(`${apiBaseUrl}/services/quick-phrases`, () => HttpResponse.json([
+        { externalId: '3f0a7a52-6d2c-4c71-9d0f-1a2b3c4d5e6f', phrase: 'CLIMA SÍ FUNCIONA', displayOrder: 1 },
+      ])),
+      http.put(`${apiBaseUrl}/services/quick-phrases`, async ({ request }) => {
+        saved = await request.json();
+        return HttpResponse.json([
+          { externalId: '3f0a7a52-6d2c-4c71-9d0f-1a2b3c4d5e6f', phrase: 'CLIMA SÍ FUNCIONA', displayOrder: 1 },
+          { externalId: '4f0a7a52-6d2c-4c71-9d0f-1a2b3c4d5e6f', phrase: 'DEL CLIENTE', displayOrder: 2 },
+        ]);
+      }),
+    );
+    renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: 'Frases' }));
+    await screen.findByRole('button', { name: /CLIMA SÍ FUNCIONA/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar lista' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Nueva frase' }), { target: { value: 'del cliente' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(await screen.findByRole('button', { name: /DEL CLIENTE/ })).toBeInTheDocument();
+    expect(saved).toEqual({
+      field: 'IMPORTANT_INFORMATION',
+      phrases: [
+        { externalId: '3f0a7a52-6d2c-4c71-9d0f-1a2b3c4d5e6f', phrase: 'CLIMA SÍ FUNCIONA' },
+        { externalId: null, phrase: 'DEL CLIENTE' },
+      ],
+    });
   });
 
   it('«Otro concepto» agrega partidas genéricas repetibles', () => {
@@ -155,20 +206,37 @@ describe('editor de órdenes', { timeout: 20_000 }, () => {
     expect(confirm).toBeEnabled();
   });
 
-  it('completar pide confirmación', async () => {
+  it('completar exige el número de serie y luego pide confirmación', async () => {
     renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: 'Completar y entregar' }));
+    expect(await screen.findByText(/Captura el número de serie/)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Completar y entregar' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'SIN SERIE' }));
     fireEvent.click(screen.getByRole('button', { name: 'Completar y entregar' }));
     const dialog = await screen.findByRole('dialog', { name: 'Completar y entregar' });
     expect(within(dialog).getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
   });
 
+  it('muestra la nota privada guardada para seguir editándola', () => {
+    renderEditor({ order: { ...order, status: 'COMPLETED', internalNote: 'Regresó por fuga en la manguera' } });
+    expect(screen.getByRole('textbox', { name: 'Nota privada del taller' })).toHaveValue('Regresó por fuga en la manguera');
+  });
+
+  it('una orden eliminada muestra quién la eliminó y se puede restaurar', async () => {
+    renderEditor({ order: { ...order, status: 'CANCELLED', cancelledByName: 'Eloísa Díaz', cancellationReason: 'Duplicada' } });
+    expect(screen.getByText(/eliminada por Eloísa Díaz/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Restaurar orden' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Restaurar orden' });
+    expect(within(dialog).getByText(/vuelve a las listas como en progreso/)).toBeInTheDocument();
+  });
+
   it('una orden completada sigue editable y se guarda con el botón principal', () => {
     renderEditor({ order: { ...order, status: 'COMPLETED' } });
     expect(screen.getByText(/Puedes seguir editándola/, { selector: '.MuiAlert-message' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tapón' })).toBeEnabled();
+    expect(screen.getByRole('checkbox', { name: 'Tapón' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Guardar cambios' })).toHaveAttribute('type', 'submit');
     expect(screen.queryByRole('button', { name: 'Completar y entregar' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Tapón' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Tapón' }));
     expect(screen.getByRole('textbox', { name: 'Costo de Tapón' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeEnabled();
   });
@@ -177,7 +245,7 @@ describe('editor de órdenes', { timeout: 20_000 }, () => {
     renderEditor({ order: { ...order, status: 'CANCELLED' } });
     expect(screen.queryByRole('button', { name: 'Guardar cambios' })).not.toBeInTheDocument();
     expect(screen.getByText(/solo lectura/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tapón' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: 'Tapón' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Vista previa: orden de servicio' })).toBeEnabled();
   });
 

@@ -1,15 +1,19 @@
+import BoltIcon from '@mui/icons-material/Bolt';
 import BorderColorOutlinedIcon from '@mui/icons-material/BorderColorOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import FormatUnderlinedIcon from '@mui/icons-material/FormatUnderlined';
 import UndoIcon from '@mui/icons-material/Undo';
-import { Box, FormHelperText, IconButton, Tooltip } from '@mui/material';
+import { Box, Button, Divider, FormHelperText, IconButton, Tooltip } from '@mui/material';
 import Highlight from '@tiptap/extension-highlight';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { useEffect, useId, type ReactNode } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { documentToNote, noteToDocument } from '../importantNoteDocument';
 import { FieldLabel } from '../ui';
+import { insertPhraseAsBullet } from './insertPhraseAsBullet';
+import { QuickPhrasesPopover } from './QuickPhrasesPopover';
 import { tone } from '../tokens';
 
 interface ImportantNoteFieldProps {
@@ -23,6 +27,7 @@ interface ImportantNoteFieldProps {
 /** Same persisted text contract as the current editor (`__subrayado__`, `==resaltado==`, • and 1.). */
 export const ImportantNoteField = ({ value, onChange, onBlur, disabled, error }: ImportantNoteFieldProps) => {
   const id = useId();
+  const [phrasesAnchor, setPhrasesAnchor] = useState<HTMLElement | null>(null);
   const editor = useEditor({
     extensions: [StarterKit.configure({
       bold: false, italic: false, strike: false, code: false, codeBlock: false,
@@ -37,6 +42,8 @@ export const ImportantNoteField = ({ value, onChange, onBlur, disabled, error }:
       attributes: {
         role: 'textbox',
         'aria-multiline': 'true',
+        spellcheck: 'true',
+        lang: 'es-MX',
         'aria-labelledby': `${id}-label`,
         'aria-invalid': String(Boolean(error)),
         'aria-describedby': error ? `${id}-error` : '',
@@ -95,6 +102,25 @@ export const ImportantNoteField = ({ value, onChange, onBlur, disabled, error }:
               </span>
             </Tooltip>
           ))}
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.75, my: 0.5 }} />
+          <Button
+            size="small"
+            variant={phrasesAnchor ? 'contained' : 'outlined'}
+            startIcon={<BoltIcon fontSize="small" />}
+            endIcon={<ExpandMoreIcon fontSize="small" />}
+            disabled={disabled || !editor}
+            aria-haspopup="dialog"
+            aria-expanded={Boolean(phrasesAnchor)}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={(event) => {
+              // Without a cursor in the field, phrases go to the end of the text.
+              if (editor && !editor.isFocused) editor.commands.focus('end');
+              setPhrasesAnchor(event.currentTarget);
+            }}
+            sx={{ height: 30, px: 1.25, fontSize: 13, fontWeight: 600, borderRadius: 1.5, '& .MuiButton-startIcon': { mr: 0.5 }, '& .MuiButton-endIcon': { ml: 0.25 } }}
+          >
+            Frases
+          </Button>
           <Box sx={{ flex: 1 }} />
           <Tooltip title="Deshacer">
             <span>
@@ -124,6 +150,12 @@ export const ImportantNoteField = ({ value, onChange, onBlur, disabled, error }:
         </Box>
       </Box>
       {error && <FormHelperText id={`${id}-error`} error>{error}</FormHelperText>}
+      <QuickPhrasesPopover
+        anchorEl={phrasesAnchor}
+        open={Boolean(phrasesAnchor)}
+        onClose={() => { setPhrasesAnchor(null); editor?.commands.focus(); }}
+        onInsert={(phrase) => { if (editor) insertPhraseAsBullet(editor, phrase); }}
+      />
     </Box>
   );
 };

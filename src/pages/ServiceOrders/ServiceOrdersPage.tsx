@@ -3,6 +3,7 @@ import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
@@ -33,7 +34,7 @@ import {
   snapshotPhones,
   snapshotColor,
   snapshotPlate,
-  snapshotVehicleName,
+  snapshotVehicleHeadline,
 } from './serviceOrderUtils';
 import { AgePill, CategoryIcon, PageCanvas, PageContainer, PlateBadge } from './ui';
 import { cardSx, inputSx, tone } from './tokens';
@@ -52,12 +53,18 @@ const categoryFilters: { value: ServiceOrderCategory | null; label: string }[] =
   { value: 'PART', label: 'Piezas' },
 ];
 const isCategory = (value: string | null): value is ServiceOrderCategory => value === 'VEHICLE' || value === 'PART';
-const columns = '110px minmax(0, 1.2fr) minmax(0, 1.6fr) 150px 130px 24px';
+// The vehicle comes right after the folio: the shop finds orders by the car, not the client.
+const columns = '100px minmax(0, 1.7fr) minmax(0, 1.1fr) 170px 120px 24px';
+const formatDateTime = (value?: string | null) => (value
+  ? new Date(value).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
+  : '');
 
 export const ServiceOrdersPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusParam = searchParams.get('status');
-  const status: ListStatus = isStatus(statusParam) ? statusParam : 'IN_PROGRESS';
+  // Deleted orders live in a separate, read-only archive view.
+  const archived = statusParam === 'CANCELLED';
+  const status: ListStatus | 'CANCELLED' = archived ? 'CANCELLED' : isStatus(statusParam) ? statusParam : 'IN_PROGRESS';
   const categoryParam = searchParams.get('category');
   const category = isCategory(categoryParam) ? categoryParam : undefined;
   const rawPage = Number(searchParams.get('page') ?? 0);
@@ -95,6 +102,11 @@ export const ServiceOrdersPage = () => {
   const counts = useServiceOrderStatusCounts(undefined, category);
   const orders = data?.data ?? [];
   const total = data?.pagination.total ?? 0;
+  // A search with no results may match a deleted folio; say so instead of «nothing found».
+  const deletedMatches = useServiceOrders(
+    { ...filters, status: 'CANCELLED', limit: 3, offset: 0 },
+    !archived && !invalidDates && Boolean(debouncedQuery) && data?.pagination.total === 0,
+  ).data;
   const hasFilters = Boolean(query || dateFrom || dateTo);
   const dateLabel = dateFrom || dateTo
     ? `${dateFrom ? formatShortDate(dateFrom) : 'Inicio'} – ${dateTo ? formatShortDate(dateTo) : 'hoy'}`
@@ -105,8 +117,11 @@ export const ServiceOrdersPage = () => {
     <PageCanvas>
       <PageContainer sx={{ pt: 3.5, pb: 6, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
-          <Typography component="h1" sx={{ fontSize: 26, fontWeight: 700, color: tone.ink, flex: 1 }}>Órdenes de servicio</Typography>
-          <Button
+          {archived && (
+            <Button startIcon={<ChevronLeftIcon />} onClick={() => update({ status: null })} sx={{ fontWeight: 500, pl: 0.5 }}>Órdenes</Button>
+          )}
+          <Typography component="h1" sx={{ fontSize: 26, fontWeight: 700, color: tone.ink, flex: 1 }}>{archived ? 'Órdenes eliminadas' : 'Órdenes de servicio'}</Typography>
+          {!archived && <Button
             component={Link}
             to={`/service-orders/new?returnTo=${encodeURIComponent(returnUrl)}`}
             variant="contained"
@@ -115,11 +130,14 @@ export const ServiceOrdersPage = () => {
             sx={{ height: 44, px: 2.5, borderRadius: 2.5, whiteSpace: 'nowrap' }}
           >
             Nueva orden
-          </Button>
+          </Button>}
         </Box>
+        {archived && (
+          <Typography sx={{ color: tone.faint, mt: -1 }}>Solo consulta. Abre una orden para ver su detalle o restaurarla.</Typography>
+        )}
 
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
-          <Box role="tablist" aria-label="Estado de las órdenes" sx={[cardSx, { display: 'flex', p: 0.5, gap: 0.25, borderRadius: 2.5 }]}>
+          {!archived && <Box role="tablist" aria-label="Estado de las órdenes" sx={[cardSx, { display: 'flex', p: 0.5, gap: 0.25, borderRadius: 2.5 }]}>
             {tabs.map((tab) => {
               const selected = tab.status === status;
               return (
@@ -137,7 +155,7 @@ export const ServiceOrdersPage = () => {
                 </ButtonBase>
               );
             })}
-          </Box>
+          </Box>}
           <Box role="group" aria-label="Tipo de orden" sx={[cardSx, { display: 'flex', p: 0.5, gap: 0.25, borderRadius: 2.5 }]}>
             {categoryFilters.map((filter) => {
               const selected = (filter.value ?? undefined) === category;
@@ -157,14 +175,14 @@ export const ServiceOrdersPage = () => {
           <TextField
             value={query}
             onChange={(event) => update({ q: event.target.value })}
-            placeholder="Folio, celular, placas, vehículo, color o falla"
+            placeholder="Folio, cliente, celular, vehículo, placas o serie"
             slotProps={{
               htmlInput: { 'aria-label': 'Buscar órdenes' },
               input: {
                 startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: tone.faint }} /></InputAdornment>,
                 endAdornment: (
                   <InputAdornment position="end">
-                    {isFetching && !isLoading ? <CircularProgress size={18} /> : debouncedQuery && (
+                    {isFetching && !isLoading ? <CircularProgress size={18} /> : debouncedQuery && searchField !== 'q' && (
                       <Box component="span" sx={{ px: 1, py: 0.25, borderRadius: 999, bgcolor: tone.primaryTint, color: tone.primaryDark, fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap' }}>
                         Por {SEARCH_FIELD_LABELS[searchField]}
                       </Box>
@@ -186,7 +204,23 @@ export const ServiceOrdersPage = () => {
             {dateLabel}
           </Button>
           {hasFilters && <Button onClick={() => setSearchParams(category ? { status, category } : { status }, { replace: true })}>Limpiar</Button>}
+          {!archived && (
+            <Button startIcon={<Inventory2OutlinedIcon />} onClick={() => update({ status: 'CANCELLED' })} sx={{ ml: 'auto', color: tone.faint, fontWeight: 500 }}>
+              Ver eliminadas
+            </Button>
+          )}
         </Box>
+
+        {!archived && deletedMatches && deletedMatches.pagination.total > 0 && (
+          <Alert
+            severity="info"
+            action={<Button color="inherit" onClick={() => update({ status: 'CANCELLED' })}>Ver eliminadas</Button>}
+          >
+            {deletedMatches.pagination.total === 1
+              ? `El folio ${folioLabel(deletedMatches.data[0])} coincide, pero fue eliminado${deletedMatches.data[0].cancelledAt ? ` (${formatDateTime(deletedMatches.data[0].cancelledAt)})` : ''}.`
+              : `${deletedMatches.pagination.total} órdenes eliminadas coinciden con la búsqueda (folios ${deletedMatches.data.map(folioLabel).join(', ')}${deletedMatches.pagination.total > deletedMatches.data.length ? '…' : ''}).`}
+          </Alert>
+        )}
 
         <Popover open={Boolean(dateAnchor)} anchorEl={dateAnchor} onClose={() => setDateAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
           <Stack spacing={1.5} sx={{ p: 2, width: 280 }}>
@@ -208,7 +242,7 @@ export const ServiceOrdersPage = () => {
           <Box sx={[cardSx, { overflowX: 'auto' }]}>
             <Box sx={{ minWidth: 900 }} aria-busy={isFetching}>
               <Box sx={{ display: 'grid', gridTemplateColumns: columns, gap: 2, px: 2.5, py: 1.5, bgcolor: tone.subtle, borderBottom: 1, borderColor: tone.border, fontSize: 12, fontWeight: 700, color: tone.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                <span>Folio</span><span>Cliente</span><span>Vehículo o pieza y motivo</span><span>{inWorkshop ? 'Abierta' : 'Ingreso'}</span><Box component="span" sx={{ textAlign: 'right' }}>Total</Box><span />
+                <span>Folio</span><span>Vehículo o pieza y motivo</span><span>Cliente</span><span>{archived ? 'Eliminada' : inWorkshop ? 'Abierta' : 'Ingreso'}</span><Box component="span" sx={{ textAlign: 'right' }}>Total</Box><span />
               </Box>
               {isLoading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
@@ -216,12 +250,13 @@ export const ServiceOrdersPage = () => {
                 <Stack alignItems="center" spacing={1} sx={{ py: 8, px: 2, textAlign: 'center' }}>
                   <AssignmentOutlinedIcon sx={{ fontSize: 44, color: tone.borderStrong }} />
                   <Typography sx={{ fontSize: 18, fontWeight: 700, color: tone.ink }}>
-                    {hasFilters ? 'No encontramos coincidencias' : tabs.find((tab) => tab.status === status)?.empty}
+                    {hasFilters ? 'No encontramos coincidencias' : archived ? 'No hay órdenes eliminadas' : tabs.find((tab) => tab.status === status)?.empty}
                   </Typography>
                   <Typography sx={{ color: tone.faint }}>{hasFilters ? 'Revisa lo que escribiste o limpia los filtros.' : 'Las órdenes aparecerán aquí al registrarlas.'}</Typography>
                 </Stack>
               ) : orders.map((order) => {
                 const days = daysSince(order.serviceDate);
+                const { headline, detail } = snapshotVehicleHeadline(order);
                 return (
                   <Box
                     key={order.externalId}
@@ -231,24 +266,33 @@ export const ServiceOrdersPage = () => {
                   >
                     <Box component="span" sx={{ fontWeight: 700, color: tone.primary, fontVariantNumeric: 'tabular-nums' }}>{folioLabel(order)}</Box>
                     <Box component="span" sx={{ minWidth: 0 }}>
-                      <Box component="span" sx={{ display: 'block', fontWeight: 700, color: tone.ink }}>{snapshotClientName(order)}</Box>
-                      <Box component="span" sx={{ display: 'block', color: tone.faint, fontSize: 13 }}>{snapshotPhones(order)}</Box>
-                    </Box>
-                    <Box component="span" sx={{ minWidth: 0 }}>
-                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                      <Box component="span" sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 1, rowGap: 0.25, minWidth: 0 }}>
                         <CategoryIcon category={order.category} />
-                        <Box component="span" title={snapshotVehicleName(order)} sx={{ fontWeight: 500, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{snapshotVehicleName(order)}</Box>
-                        {snapshotColor(order) && <Box component="span" sx={{ color: tone.muted, fontSize: 13 }}>{snapshotColor(order)}</Box>}
+                        <Box component="span" title={headline} sx={{ fontSize: 16, fontWeight: 700, color: order.category === 'PART' ? tone.partInk : tone.primary, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{headline}</Box>
+                        {detail && <Box component="span" sx={{ color: tone.muted, fontSize: 13 }}>{detail}</Box>}
+                        {snapshotColor(order) && <Box component="span" sx={{ color: tone.muted, fontSize: 13 }}>· {snapshotColor(order)}</Box>}
                         <PlateBadge plate={snapshotPlate(order)} size="sm" />
                       </Box>
                       <Box component="span" sx={{ display: 'block', color: tone.faint, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {order.reportedFailureSummary?.trim() || 'Sin motivo registrado'}
                       </Box>
                     </Box>
-                    <Box component="span">
-                      {inWorkshop && days !== null && <AgePill days={days} />}
-                      <Box component="span" sx={{ display: 'block', color: tone.faint, fontSize: 12, mt: inWorkshop ? 0.25 : 0 }}>{inWorkshop ? `Ingresó ${formatShortDate(order.serviceDate)}` : formatShortDate(order.serviceDate)}</Box>
+                    <Box component="span" sx={{ minWidth: 0 }}>
+                      <Box component="span" sx={{ display: 'block', fontWeight: 500, color: tone.text, fontSize: 14 }}>{snapshotClientName(order)}</Box>
+                      <Box component="span" sx={{ display: 'block', color: tone.faint, fontSize: 12 }}>{snapshotPhones(order)}</Box>
                     </Box>
+                    {archived ? (
+                      <Box component="span" sx={{ minWidth: 0, fontSize: 12, color: tone.faint }}>
+                        <Box component="span" sx={{ display: 'block', color: tone.text }}>{formatDateTime(order.cancelledAt)}</Box>
+                        {order.cancelledByName && <Box component="span" sx={{ display: 'block' }}>Por {order.cancelledByName}</Box>}
+                        {order.cancellationReason && <Box component="span" title={order.cancellationReason} sx={{ display: 'block', color: tone.dangerInk, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>«{order.cancellationReason}»</Box>}
+                      </Box>
+                    ) : (
+                      <Box component="span">
+                        {inWorkshop && days !== null && <AgePill days={days} />}
+                        <Box component="span" sx={{ display: 'block', color: tone.faint, fontSize: 12, mt: inWorkshop ? 0.25 : 0 }}>{inWorkshop ? `Ingresó ${formatShortDate(order.serviceDate)}` : formatShortDate(order.serviceDate)}</Box>
+                      </Box>
+                    )}
                     <Box component="span" sx={{ textAlign: 'right', fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>{formatMoney(order.total)}</Box>
                     <ChevronRightIcon sx={{ color: '#9AA6B8' }} fontSize="small" />
                   </Box>

@@ -111,7 +111,7 @@ interface SummaryAsideProps {
   readOnly: boolean;
   synced: boolean;
   busy: boolean;
-  onRequestTransition: (transition: 'complete' | 'delete') => void;
+  onRequestTransition: (transition: 'complete' | 'delete' | 'restore') => void;
   canDiscardLocal: boolean;
   pdf: PdfActions;
 }
@@ -164,8 +164,9 @@ export const SummaryAside = memo(({ order, failureTypes, readOnly, synced, busy,
             <Typography sx={{ color: order.status === 'COMPLETED' ? tone.successInk : tone.dangerInk, fontSize: 14, fontWeight: 500 }}>
               {order.status === 'COMPLETED'
                 ? `Completada${order.completedAt ? ` el ${new Date(order.completedAt).toLocaleDateString('es-MX')}` : ''}. Puedes seguir editándola; guarda los cambios al terminar.`
-                : `Eliminada${order.cancelledAt ? ` el ${new Date(order.cancelledAt).toLocaleDateString('es-MX')}` : ''}. Se conserva solo como registro del folio.`}
+                : `Eliminada${order.cancelledAt ? ` el ${new Date(order.cancelledAt).toLocaleDateString('es-MX')}` : ''}${order.cancelledByName ? ` por ${order.cancelledByName}` : ''}. Se conserva solo como registro del folio.`}
             </Typography>
+            {order.status === 'CANCELLED' && <Button variant="outlined" disabled={busy} onClick={() => onRequestTransition('restore')} sx={{ borderRadius: 2 }}>Restaurar orden</Button>}
             {order.status === 'COMPLETED' && <Button disabled={busy} onClick={() => onRequestTransition('delete')} sx={{ color: tone.danger }}>Eliminar orden</Button>}
           </Stack>
         )}

@@ -22,12 +22,16 @@ export const ivaModeFor = (taxAmount: number | null | undefined, subtotal: numbe
   return tax === toCents(computeIva(subtotal)) ? 'auto' : 'manual';
 };
 
-/** One search box: short numbers and provisional references are folios, long digit runs are phones, the rest free words. */
+/**
+ * One search box: a 10-digit cell phone matches the client's phone exactly and
+ * PEND/SER references are folios; everything else (folio numbers, names, numeric
+ * radiator serials, vehicles, plates…) goes to the free-word search, which covers them all.
+ */
 export const detectSearchField = (query: string): SearchField => {
   const text = query.trim();
-  if (/^\d{1,6}$/.test(text) || /^(PEND|SER)\b/i.test(text)) return 'folio';
+  if (/^(PEND|SER)\b/i.test(text)) return 'folio';
   const digits = text.replace(/[\s()+-]/g, '');
-  if (/^\d{7,}$/.test(digits)) return 'phone';
+  if (/^\d{10,}$/.test(digits)) return 'phone';
   return 'q';
 };
 
@@ -77,6 +81,20 @@ const snapshotVehicleOnly = (order: ServiceOrder) => [
 export const snapshotVehicleName = (order: ServiceOrder) => (order.category === 'PART'
   ? order.partDescription?.trim() || 'Pieza sin descripción'
   : snapshotVehicleOnly(order));
+
+/**
+ * How the shop recognizes an order in the list: by the model ("la Hilux", "el Versa")
+ * or the part, with brand and year as secondary detail.
+ */
+export const snapshotVehicleHeadline = (order: ServiceOrder) => {
+  if (order.category === 'PART') return { headline: snapshotVehicleName(order), detail: 'Pieza' };
+  const brand = getSnapshotText(order.vehicleSnapshot, 'brandName', 'brand_name', 'brand', 'marca');
+  const model = getSnapshotText(order.vehicleSnapshot, 'carModelName', 'car_model_name', 'model', 'modelName', 'modelo');
+  const year = getSnapshotText(order.vehicleSnapshot, 'modelYear', 'model_year', 'year');
+  return model
+    ? { headline: model, detail: [brand, year].filter(Boolean).join(' ') }
+    : { headline: brand ?? `Vehículo #${order.vehicleId}`, detail: year ?? '' };
+};
 
 export const snapshotColor = (order: ServiceOrder) => (order.category === 'PART' ? null : getSnapshotText(order.vehicleSnapshot, 'color'));
 

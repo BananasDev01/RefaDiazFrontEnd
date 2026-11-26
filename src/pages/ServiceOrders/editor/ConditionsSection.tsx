@@ -1,6 +1,6 @@
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import { Box, ButtonBase, Checkbox, Collapse, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Box, ButtonBase, Checkbox, Chip, Collapse, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { memo, useId, useState } from 'react';
 import { Controller, useFormContext, useFormState, useWatch } from 'react-hook-form';
 import type { ServiceOrderFormValues } from '../../../types/serviceOrder.types';
@@ -34,7 +34,7 @@ const WarningToggle = ({ checked, onChange, label, disabled }: { checked: boolea
 );
 
 export const ConditionsSection = memo(({ readOnly }: { readOnly: boolean }) => {
-  const { control, getValues } = useFormContext<ServiceOrderFormValues>();
+  const { control, getValues, setValue, clearErrors } = useFormContext<ServiceOrderFormValues>();
   const { errors } = useFormState({ control, name: ['radiatorSerialNumber', 'importantInformation', 'internalNote'] });
   // Read once: watching the private note would re-render the section on every keystroke.
   const [privateOpen, setPrivateOpen] = useState(() => Boolean(getValues('internalNote')));
@@ -68,7 +68,29 @@ export const ConditionsSection = memo(({ readOnly }: { readOnly: boolean }) => {
             render={({ field }) => (
               <Box>
                 <FieldLabel htmlFor="so-serial">Número o serie del radiador</FieldLabel>
-                <TextField {...field} id="so-serial" size="small" fullWidth disabled={readOnly} error={Boolean(errors.radiatorSerialNumber)} helperText={errors.radiatorSerialNumber?.message} sx={inputSx} />
+                {/* Not needed to open or save the order, only to complete it. */}
+                <TextField
+                  {...field}
+                  id="so-serial"
+                  size="small"
+                  fullWidth
+                  disabled={readOnly}
+                  onChange={(event) => { field.onChange(event); clearErrors('radiatorSerialNumber'); }}
+                  error={Boolean(errors.radiatorSerialNumber)}
+                  helperText={errors.radiatorSerialNumber?.message ?? (field.value.trim() ? undefined : 'Obligatorio para completar la orden.')}
+                  slotProps={{ formHelperText: { sx: { color: field.value.trim() ? undefined : tone.warnInk } } }}
+                  sx={[inputSx, field.value.trim() || errors.radiatorSerialNumber ? {} : { '& .MuiOutlinedInput-notchedOutline': { borderColor: tone.warnBorder }, '& .MuiOutlinedInput-root': { bgcolor: tone.warnTint } }]}
+                />
+                {!readOnly && (
+                  <Chip
+                    label="SIN SERIE"
+                    size="small"
+                    color="primary"
+                    variant={field.value.trim().toUpperCase() === 'SIN SERIE' ? 'filled' : 'outlined'}
+                    onClick={() => { setValue('radiatorSerialNumber', 'SIN SERIE', { shouldDirty: true }); clearErrors('radiatorSerialNumber'); }}
+                    sx={{ mt: 1 }}
+                  />
+                )}
               </Box>
             )}
           />
@@ -144,7 +166,7 @@ export const ConditionsSection = memo(({ readOnly }: { readOnly: boolean }) => {
                 name="internalNote"
                 control={control}
                 render={({ field }) => (
-                  <TextField {...field} fullWidth multiline minRows={2} size="small" placeholder="Solo la verá el personal; nunca aparece en el PDF." slotProps={{ htmlInput: { 'aria-label': 'Nota privada del taller' } }} error={Boolean(errors.internalNote)} helperText={errors.internalNote?.message ?? 'Se agrega al historial interno de la orden al guardar.'} sx={inputSx} />
+                  <TextField {...field} fullWidth multiline minRows={2} size="small" placeholder="Solo la verá el personal; nunca aparece en el PDF." slotProps={{ htmlInput: { 'aria-label': 'Nota privada del taller' } }} error={Boolean(errors.internalNote)} helperText={errors.internalNote?.message ?? 'Se guarda con la orden y puedes editarla cuando quieras, también después de entregada.'} sx={inputSx} />
                 )}
               />
             </Box>

@@ -7,6 +7,8 @@ export type ServiceOrderListResponse = components['schemas']['ServiceListRespons
 export type ServiceOrderCreateRequest = components['schemas']['ServiceCreateRequest'];
 export type ServiceOrderUpdateRequest = components['schemas']['ServiceUpdateRequest'];
 export type ReportedFailureType = components['schemas']['ReportedFailureType'];
+export type ServiceQuickPhrase = components['schemas']['ServiceQuickPhrase'];
+export type ServiceQuickPhraseInput = components['schemas']['ServiceQuickPhraseListRequest']['phrases'][number];
 export type WarrantyMonths = components['schemas']['WarrantyMonths'];
 export type ServiceOrderSearchParams = NonNullable<
   operations['searchServices']['parameters']['query']
