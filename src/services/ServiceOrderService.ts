@@ -5,6 +5,8 @@ import type {
   ServiceOrderListResponse,
   ServiceOrderSearchParams,
   ServiceOrderUpdateRequest,
+  ServiceQuickPhrase,
+  ServiceQuickPhraseInput,
 } from '../types/serviceOrder.types';
 import axiosInstance from './axiosConfig';
 
@@ -22,6 +24,15 @@ export const getServiceOrder = async (externalId: string): Promise<ServiceOrder>
 
 export const listReportedFailureTypes = async (): Promise<ReportedFailureType[]> => {
   return axiosInstance.get(`${SERVICES_ENDPOINT}/failure-types`);
+};
+
+export const listQuickPhrases = async (): Promise<ServiceQuickPhrase[]> => {
+  return axiosInstance.get(`${SERVICES_ENDPOINT}/quick-phrases`);
+};
+
+/** Replaces the whole shared list: edits, order, additions and removals in one call. */
+export const replaceQuickPhrases = async (phrases: ServiceQuickPhraseInput[]): Promise<ServiceQuickPhrase[]> => {
+  return axiosInstance.put(`${SERVICES_ENDPOINT}/quick-phrases`, { field: 'IMPORTANT_INFORMATION', phrases });
 };
 
 export const createServiceOrder = async (

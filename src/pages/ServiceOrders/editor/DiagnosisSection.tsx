@@ -1,7 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
-import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
-import { Alert, Box, Button, ButtonBase, IconButton, TextField, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, ButtonBase, Checkbox, IconButton, TextField, Tooltip, Typography } from '@mui/material';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { Controller, useFieldArray, useFormContext, useFormState } from 'react-hook-form';
 import { v4 as uuidv4 } from 'uuid';
@@ -15,94 +14,130 @@ import { useFormSelector, useTotals } from './useFormSelector';
 type Undo = { kind: 'deselected'; index: number; label: string } | { kind: 'removed'; index: number; row: ServiceOrderFailureFormValue; label: string };
 
 const OTHER_CODE = 'OTHER';
-const columns = { xs: 'minmax(0, 1fr) 44px', md: 'minmax(150px, 1fr) minmax(0, 2.2fr) 150px 44px' } as const;
+const columns = { xs: '40px minmax(0, 1fr) 40px', md: '40px minmax(150px, 210px) minmax(0, 1fr) 150px 40px' } as const;
 const hasData = (row: ServiceOrderFailureFormValue) => row.amount !== null || Boolean(row.observation.trim()) || Boolean(row.customFailure.trim());
 
 // Re-renders only when the selection changes, not while typing observations or costs.
 const selectSelection = (values: ServiceOrderFormValues) => values.reportedFailures.map((row) => [row.reportedFailureTypeId, row.selected] as const);
 
-interface LineRowProps {
-  index: number;
+interface ConceptRowProps {
   label: string;
+  /** Form row for this concept; null while it has never been selected. */
+  index: number | null;
+  selected: boolean;
   showDetail: boolean;
   readOnly: boolean;
+  onToggle: () => void;
   onRemove: (index: number) => void;
   onAmountChange: () => void;
 }
 
-const LineRow = memo(({ index, label, showDetail, readOnly, onRemove, onAmountChange }: LineRowProps) => {
+/** One line per concept, like the paper form: checking it opens observations and cost on the same line. */
+const ConceptRow = memo(({ label, index, selected, showDetail, readOnly, onToggle, onRemove, onAmountChange }: ConceptRowProps) => {
   const { control } = useFormContext<ServiceOrderFormValues>();
-  const { errors } = useFormState({ control, name: `reportedFailures.${index}` });
-  const rowErrors = errors.reportedFailures?.[index];
+  const { errors } = useFormState({ control, name: index === null ? 'reportedFailures' : `reportedFailures.${index}` });
+  const rowErrors = index === null ? undefined : errors.reportedFailures?.[index];
+  const open = selected && index !== null;
 
   return (
     <Box
-      data-testid="service-line"
-      sx={{ display: 'grid', gridTemplateColumns: { xs: columns.xs, md: columns.md }, gap: 1.5, px: 1.75, py: 1.5, borderBottom: 1, borderColor: tone.divider, alignItems: 'start' }}
+      data-testid={open ? 'service-line' : undefined}
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: columns.xs, md: columns.md },
+        columnGap: 1.25,
+        rowGap: 1,
+        alignItems: 'center',
+        px: 1,
+        py: open ? 1 : 0.25,
+        minHeight: 40,
+        borderBottom: 1,
+        borderColor: tone.divider,
+        bgcolor: open ? tone.primaryTint : 'transparent',
+        transition: 'background-color 120ms ease',
+      }}
     >
-      <Box sx={{ pt: { md: 1.1 }, minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 700, color: tone.ink, fontSize: 14 }}>{label}</Typography>
-        {showDetail && (
-          <Controller
-            name={`reportedFailures.${index}.customFailure`}
-            control={control}
-            render={({ field }) => (
-              <TextField {...field} size="small" fullWidth disabled={readOnly} slotProps={{ htmlInput: { 'aria-label': `Detalle de ${label}` } }} placeholder="Detalle (opcional)" error={Boolean(rowErrors?.customFailure)} helperText={rowErrors?.customFailure?.message} sx={[inputSx, { mt: 1 }]} />
+      <Checkbox
+        checked={selected}
+        onChange={onToggle}
+        disabled={readOnly}
+        size="small"
+        slotProps={{ input: { 'aria-label': label } }}
+        sx={{ gridColumn: 1, gridRow: 1, justifySelf: 'center', p: 0.75 }}
+      />
+      <Box
+        onClick={readOnly ? undefined : onToggle}
+        sx={{ minWidth: 0, cursor: readOnly ? 'default' : 'pointer', userSelect: 'none', gridRow: 1, gridColumn: { xs: open ? 2 : '2 / -1', md: open ? 2 : '2 / -1' } }}
+      >
+        <Typography sx={{ fontWeight: open ? 700 : 500, color: open ? tone.ink : tone.muted, fontSize: 14 }}>{label}</Typography>
+      </Box>
+      {open && (
+        <>
+          {showDetail && (
+            <Box sx={{ gridColumn: { xs: '2 / -1', md: 2 }, gridRow: 2 }}>
+              <Controller
+                name={`reportedFailures.${index}.customFailure`}
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} size="small" fullWidth disabled={readOnly} slotProps={{ htmlInput: { 'aria-label': `Detalle de ${label}` } }} placeholder="Detalle (opcional)" error={Boolean(rowErrors?.customFailure)} helperText={rowErrors?.customFailure?.message} sx={inputSx} />
+                )}
+              />
+            </Box>
+          )}
+          <Box sx={{ gridColumn: { xs: '2 / -1', md: 3 }, gridRow: { xs: showDetail ? 3 : 2, md: 1 } }}>
+            <Controller
+              name={`reportedFailures.${index}.observation`}
+              control={control}
+              render={({ field: { ref, ...field } }) => (
+                <TextField
+                  {...field}
+                  inputRef={ref}
+                  size="small"
+                  fullWidth
+                  multiline
+                  minRows={1}
+                  disabled={readOnly}
+                  placeholder="Qué se encontró, refacción, notas…"
+                  slotProps={{ htmlInput: { 'aria-label': `Observaciones de ${label}`, lang: 'es-MX', spellCheck: true } }}
+                  error={Boolean(rowErrors?.observation)}
+                  helperText={rowErrors?.observation?.message}
+                  sx={inputSx}
+                />
+              )}
+            />
+          </Box>
+          <Box sx={{ gridColumn: { xs: '2 / -1', md: 4 }, gridRow: { xs: showDetail ? 4 : 3, md: 1 } }}>
+            <Controller
+              name={`reportedFailures.${index}.amount`}
+              control={control}
+              render={({ field }) => (
+                <AmountInput
+                  label={`Costo de ${label}`}
+                  value={field.value}
+                  disabled={readOnly}
+                  onBlur={field.onBlur}
+                  onChange={(next) => { field.onChange(next); onAmountChange(); }}
+                  error={rowErrors?.amount?.message}
+                  helperText={field.value === null ? 'Sin cotizar' : field.value === 0 ? 'Sin cargo' : undefined}
+                />
+              )}
+            />
+          </Box>
+          <Box sx={{ gridColumn: { xs: 3, md: 5 }, gridRow: 1, justifySelf: 'center' }}>
+            {!readOnly && (
+              <Tooltip title={`Quitar ${label}`}>
+                <IconButton aria-label={`Quitar ${label}`} onClick={() => onRemove(index)} size="small" sx={{ color: tone.faint }}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
-          />
-        )}
-      </Box>
-      <Box sx={{ gridColumn: { xs: '1 / -1', md: 'auto' }, gridRow: { xs: 2, md: 'auto' } }}>
-        <Controller
-          name={`reportedFailures.${index}.observation`}
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              size="small"
-              fullWidth
-              multiline
-              minRows={1}
-              disabled={readOnly}
-              placeholder="Qué se encontró, refacción, notas…"
-              slotProps={{ htmlInput: { 'aria-label': `Observaciones de ${label}` } }}
-              error={Boolean(rowErrors?.observation)}
-              helperText={rowErrors?.observation?.message}
-              sx={inputSx}
-            />
-          )}
-        />
-      </Box>
-      <Box sx={{ gridColumn: { xs: '1 / -1', md: 'auto' }, gridRow: { xs: 3, md: 'auto' } }}>
-        <Controller
-          name={`reportedFailures.${index}.amount`}
-          control={control}
-          render={({ field }) => (
-            <AmountInput
-              label={`Costo de ${label}`}
-              value={field.value}
-              disabled={readOnly}
-              onBlur={field.onBlur}
-              onChange={(next) => { field.onChange(next); onAmountChange(); }}
-              error={rowErrors?.amount?.message}
-              helperText={field.value === null ? 'Sin cotizar' : field.value === 0 ? 'Sin cargo' : undefined}
-            />
-          )}
-        />
-      </Box>
-      <Box sx={{ gridColumn: { xs: 2, md: 'auto' }, gridRow: { xs: 1, md: 'auto' } }}>
-        {!readOnly && (
-          <Tooltip title={`Quitar ${label}`}>
-            <IconButton aria-label={`Quitar ${label}`} onClick={() => onRemove(index)} sx={{ color: tone.faint }}>
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        )}
-      </Box>
+          </Box>
+        </>
+      )}
     </Box>
   );
 });
-LineRow.displayName = 'LineRow';
+ConceptRow.displayName = 'ConceptRow';
 
 const SubtotalFooter = () => {
   const { subtotal, preserveLegacySubtotal } = useTotals();
@@ -122,7 +157,7 @@ interface DiagnosisSectionProps {
 }
 
 export const DiagnosisSection = memo(({ failureTypes, readOnly }: DiagnosisSectionProps) => {
-  const { control, setValue, getValues } = useFormContext<ServiceOrderFormValues>();
+  const { control, setValue, getValues, setFocus } = useFormContext<ServiceOrderFormValues>();
   const rows = useFieldArray({ control, name: 'reportedFailures' });
   const selection = useFormSelector(selectSelection);
   const [undo, setUndo] = useState<Undo | null>(null);
@@ -141,6 +176,11 @@ export const DiagnosisSection = memo(({ failureTypes, readOnly }: DiagnosisSecti
   }, [setValue, touchTotals]);
   const labelOf = useCallback((row: ServiceOrderFailureFormValue) => typesById.get(row.reportedFailureTypeId)?.label ?? 'Concepto', [typesById]);
 
+  const focusObservation = useCallback((index: number) => {
+    // Wait for the row to open before moving the cursor into it.
+    requestAnimationFrame(() => setFocus(`reportedFailures.${index}.observation`));
+  }, [setFocus]);
+
   const toggleType = (type: ReportedFailureType) => {
     const values = getValues('reportedFailures');
     const indexes = values.flatMap((row, index) => (row.reportedFailureTypeId === type.id ? [index] : []));
@@ -152,9 +192,11 @@ export const DiagnosisSection = memo(({ failureTypes, readOnly }: DiagnosisSecti
     } else if (indexes.length) {
       select(indexes[0], true);
       setUndo(null);
+      focusObservation(indexes[0]);
     } else {
-      append({ reportedFailureTypeId: type.id, selected: true, customFailure: '', amount: null, observation: '', externalId: uuidv4() });
+      append({ reportedFailureTypeId: type.id, selected: true, customFailure: '', amount: null, observation: '', externalId: uuidv4() }, { shouldFocus: false });
       touchTotals();
+      focusObservation(values.length);
     }
   };
 
@@ -162,10 +204,13 @@ export const DiagnosisSection = memo(({ failureTypes, readOnly }: DiagnosisSecti
     if (!otherType) return;
     const values = getValues('reportedFailures');
     const empty = values.findIndex((row) => row.reportedFailureTypeId === otherType.id && !row.selected && !hasData(row));
-    if (empty >= 0) select(empty, true);
-    else {
-      append({ reportedFailureTypeId: otherType.id, selected: true, customFailure: '', amount: null, observation: '', externalId: uuidv4() });
+    if (empty >= 0) {
+      select(empty, true);
+      focusObservation(empty);
+    } else {
+      append({ reportedFailureTypeId: otherType.id, selected: true, customFailure: '', amount: null, observation: '', externalId: uuidv4() }, { shouldFocus: false });
       touchTotals();
+      focusObservation(values.length);
     }
   };
 
@@ -193,87 +238,71 @@ export const DiagnosisSection = memo(({ failureTypes, readOnly }: DiagnosisSecti
   };
 
   const lines = selection.flatMap(([, selected], index) => (selected ? [index] : []));
+  const otherLines = lines.filter((index) => selection[index][0] === otherType?.id);
 
   return (
     <SectionCard
       id="so-diagnostico"
       title="Diagnóstico y trabajo"
       action={<Typography sx={{ color: tone.faint, fontSize: 13 }}>{lines.length === 1 ? '1 partida' : `${lines.length} partidas`}</Typography>}
-      description="Marca las fallas encontradas. Cada una se vuelve una partida con su costo."
+      description="Marca lo que se hizo y escribe en el mismo renglón."
     >
-      <Box role="group" aria-label="Fallas del catálogo" sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        {chipTypes.map((type) => {
-          const selected = selection.some(([typeId, isSelected]) => typeId === type.id && isSelected);
-          return (
-            <ButtonBase
-              key={type.id}
-              aria-pressed={selected}
-              disabled={readOnly}
-              onClick={() => toggleType(type)}
-              sx={{
-                height: 34,
-                px: 1.75,
-                gap: 0.75,
-                borderRadius: 999,
-                fontSize: 14,
-                fontWeight: 500,
-                border: 1,
-                borderColor: selected ? tone.primary : tone.borderStrong,
-                bgcolor: selected ? tone.primary : tone.card,
-                color: selected ? '#FFFFFF' : tone.text,
-                transition: 'background-color 120ms ease, border-color 120ms ease',
-                '&:hover': { borderColor: tone.primary },
-                '&:focus-visible': { outline: `2px solid ${tone.primary}`, outlineOffset: 2 },
-                '&.Mui-disabled': { opacity: selected ? 0.85 : 0.6 },
-              }}
-            >
-              {selected && <CheckIcon sx={{ fontSize: 16 }} />}
-              {type.label}
-            </ButtonBase>
-          );
-        })}
-        {otherType && (
-          <ButtonBase
-            onClick={addOther}
-            disabled={readOnly}
-            sx={{ height: 34, px: 1.75, gap: 0.75, borderRadius: 999, fontSize: 14, fontWeight: 500, border: `1px dashed ${tone.primary}`, color: tone.primary, bgcolor: tone.card, '&:focus-visible': { outline: `2px solid ${tone.primary}`, outlineOffset: 2 }, '&.Mui-disabled': { opacity: 0.6 } }}
-          >
-            <AddIcon sx={{ fontSize: 16 }} />
-            Otro concepto
-          </ButtonBase>
-        )}
-      </Box>
-
       {undo && (
-        <Alert severity="info" sx={{ mt: 2 }} action={<Button color="inherit" size="small" onClick={restore}>Deshacer</Button>} onClose={() => setUndo(null)}>
+        <Alert severity="info" sx={{ mb: 1.5 }} action={<Button color="inherit" size="small" onClick={restore}>Deshacer</Button>} onClose={() => setUndo(null)}>
           Se quitó «{undo.label}». Sus datos se conservan si lo vuelves a marcar.
         </Alert>
       )}
 
-      <Box sx={{ mt: 2.25, border: 1, borderColor: tone.border, borderRadius: 2.5, overflow: 'hidden' }}>
-        <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: columns.md, gap: 1.5, px: 1.75, py: 1.25, bgcolor: tone.subtle, borderBottom: 1, borderColor: tone.border, fontSize: 12, fontWeight: 700, color: tone.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          <span>Concepto</span><span>Observaciones</span><Box component="span" sx={{ textAlign: 'right' }}>Costo</Box><span />
+      <Box role="group" aria-label="Conceptos del diagnóstico" sx={{ border: 1, borderColor: tone.border, borderRadius: 2.5, overflow: 'hidden' }}>
+        <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: columns.md, columnGap: 1.25, px: 1, py: 1, bgcolor: tone.subtle, borderBottom: 1, borderColor: tone.border, fontSize: 12, fontWeight: 700, color: tone.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <span /><span>Concepto</span><span>Observaciones</span><Box component="span" sx={{ textAlign: 'right' }}>Costo</Box><span />
         </Box>
-        {lines.length === 0 && (
-          <Typography sx={{ py: 3.5, px: 2, textAlign: 'center', color: tone.faint }}>Aún no hay partidas. Marca una falla arriba para empezar.</Typography>
-        )}
-        {lines.map((index) => {
-          const field = rows.fields[index];
+        {chipTypes.map((type) => {
+          const indexes = selection.flatMap(([typeId], index) => (typeId === type.id ? [index] : []));
+          const selectedIndex = indexes.find((index) => selection[index][1]);
+          const index = selectedIndex ?? indexes[0] ?? null;
           // The field array and the selection subscription can be one render apart after append/remove.
-          if (!field) return null;
-          const type = typesById.get(selection[index][0]);
+          const ready = index !== null && Boolean(rows.fields[index]);
           return (
-            <LineRow
-              key={field?.id ?? index}
-              index={index}
-              label={type?.label ?? 'Concepto'}
-              showDetail={Boolean(type?.allowsFreeText && field?.customFailure)}
+            <ConceptRow
+              key={type.id}
+              label={type.label}
+              index={ready ? index : null}
+              selected={selectedIndex !== undefined}
+              showDetail={Boolean(type.allowsFreeText && ready && rows.fields[index]?.customFailure)}
               readOnly={readOnly}
+              onToggle={() => toggleType(type)}
               onRemove={removeLine}
               onAmountChange={touchTotals}
             />
           );
         })}
+        {otherLines.map((index) => {
+          const field = rows.fields[index];
+          if (!field) return null;
+          return (
+            <ConceptRow
+              key={field.id}
+              label={otherType?.label ?? 'Otros'}
+              index={index}
+              selected
+              showDetail={Boolean(otherType?.allowsFreeText && field.customFailure)}
+              readOnly={readOnly}
+              onToggle={() => removeLine(index)}
+              onRemove={removeLine}
+              onAmountChange={touchTotals}
+            />
+          );
+        })}
+        {otherType && !readOnly && (
+          <ButtonBase
+            onClick={addOther}
+            sx={{ width: '100%', display: 'grid', gridTemplateColumns: { xs: columns.xs, md: columns.md }, columnGap: 1.25, alignItems: 'center', justifyItems: 'start', px: 1, minHeight: 42, color: tone.primary, fontSize: 14, fontWeight: 600, borderBottom: 1, borderColor: tone.divider, '&:hover': { bgcolor: tone.subtle }, '&:focus-visible': { outline: `2px solid ${tone.primary}`, outlineOffset: -2 } }}
+          >
+            <AddIcon sx={{ fontSize: 20, justifySelf: 'center' }} />
+            <Box component="span" sx={{ gridColumn: '2 / -1' }}>Otro concepto</Box>
+          </ButtonBase>
+        )}
         <SubtotalFooter />
       </Box>
     </SectionCard>

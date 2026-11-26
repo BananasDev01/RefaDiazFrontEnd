@@ -1,5 +1,7 @@
 import type { SvgIconComponent } from '@mui/icons-material';
 import AbcIcon from '@mui/icons-material/Abc';
+import BoltIcon from '@mui/icons-material/Bolt';
+import ChecklistIcon from '@mui/icons-material/Checklist';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
@@ -50,6 +52,24 @@ export const RELEASES: Release[] = [
     version: '1.01',
     date: '2026-11-26',
     changes: [
+      {
+        id: 'quick-phrases',
+        title: 'Frases rápidas',
+        description: 'Toca «Frases» en Información importante y elige una: entra como viñeta y la puedes corregir. Con «Editar lista» agregas, cambias u ordenas las frases para todo el equipo.',
+        where: 'Orden › Condiciones › Información importante',
+        module: 'Órdenes de servicio',
+        icon: BoltIcon,
+        media: media('1.01', 'frases-rapidas.mp4', 'Se insertan dos frases rápidas en Información importante y se abre la edición de la lista'),
+      },
+      {
+        id: 'compact-diagnosis',
+        title: 'Diagnóstico en una sola lista',
+        description: 'Cada concepto tiene su casilla. Al marcarlo, en el mismo renglón se abren observaciones y costo, sin subir y bajar la pantalla.',
+        where: 'Orden › Diagnóstico y trabajo',
+        module: 'Órdenes de servicio',
+        icon: ChecklistIcon,
+        media: media('1.01', 'diagnostico-compacto.mp4', 'Se marcan conceptos y se escriben sus observaciones y costo en el mismo renglón'),
+      },
       {
         id: 'private-note',
         title: 'La nota privada ya se guarda',

@@ -213,6 +213,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/services/quick-phrases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar las frases rápidas del equipo */
+        get: operations["listServiceQuickPhrases"];
+        /**
+         * Reemplazar la lista completa de frases rápidas
+         * @description Edita, reordena, agrega y quita frases en una sola operación. Las frases que no vengan en la lista se desactivan.
+         */
+        put: operations["replaceServiceQuickPhrases"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/services/{serviceExternalId}": {
         parameters: {
             query?: never;
@@ -695,6 +716,21 @@ export interface components {
         ServiceCancelRequest: {
             expectedVersion: number;
             reason: string;
+        };
+        ServiceQuickPhrase: {
+            /** Format: uuid */
+            externalId: string;
+            phrase: string;
+            displayOrder: number;
+        };
+        ServiceQuickPhraseListRequest: {
+            /** @enum {string} */
+            field?: "IMPORTANT_INFORMATION";
+            phrases: {
+                /** Format: uuid */
+                externalId?: string | null;
+                phrase: string;
+            }[];
         };
         ReportedFailureType: {
             id: number;
@@ -1589,6 +1625,59 @@ export interface operations {
                     "application/json": components["schemas"]["ReportedFailureType"][];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    listServiceQuickPhrases: {
+        parameters: {
+            query?: {
+                field?: "IMPORTANT_INFORMATION";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Frases activas en su orden */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceQuickPhrase"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    replaceServiceQuickPhrases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceQuickPhraseListRequest"];
+            };
+        };
+        responses: {
+            /** @description Lista resultante */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceQuickPhrase"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             500: components["responses"]["ServerError"];
