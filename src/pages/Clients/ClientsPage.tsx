@@ -198,6 +198,7 @@ const ClientsPage = () => {
       </PageContainer>
 
       <ClientCreateDialog
+        initialQuery={searchText}
         open={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onCreated={(client) => {

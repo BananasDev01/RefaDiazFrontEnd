@@ -45,7 +45,7 @@ export const createFormValues = (
   preserveLegacySubtotal: order?.lineTotalsMode === 'LEGACY' || Boolean(order && !hasStructuredLines && selectedFailures.length !== 1 && order.subtotal !== null && order.subtotal !== undefined),
   taxAmount: order?.taxAmount ?? 0,
   warrantyMonths: order?.warrantyMonths ?? null,
-  internalNote: '',
+  internalNote: order?.internalNote ?? '',
   reportedFailures: failureTypes.flatMap((type) => {
     const matches = order?.reportedFailures.filter(
       (failure) => failure.reportedFailureTypeId === type.id
@@ -117,8 +117,7 @@ export const buildWriteFields = (values: ServiceOrderFormValues, failureTypes: R
       amount: failure.amount,
       observation: failure.observation.trim() || null,
     })),
-  internalNotes: values.internalNote.trim()
-    ? [{ externalId: uuidv4(), note: values.internalNote.trim() }]
-    : [],
+  // One editable private note per order; an empty field clears it.
+  internalNote: values.internalNote.trim() || null,
   };
 };

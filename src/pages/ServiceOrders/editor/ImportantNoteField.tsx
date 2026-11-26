@@ -37,6 +37,8 @@ export const ImportantNoteField = ({ value, onChange, onBlur, disabled, error }:
       attributes: {
         role: 'textbox',
         'aria-multiline': 'true',
+        spellcheck: 'true',
+        lang: 'es-MX',
         'aria-labelledby': `${id}-label`,
         'aria-invalid': String(Boolean(error)),
         'aria-describedby': error ? `${id}-error` : '',

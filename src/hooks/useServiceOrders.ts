@@ -6,6 +6,7 @@ import {
   deleteServiceOrder,
   getServiceOrder,
   listReportedFailureTypes,
+  restoreServiceOrder,
   searchServiceOrders,
   updateServiceOrder,
 } from '../services/ServiceOrderService';
@@ -87,13 +88,24 @@ export const useServiceOrderMutations = () => {
     onError: (error: Error) => showSnackbar(`No se pudo eliminar la orden: ${error.message}`, 'error'),
   });
 
+  const restoreMutation = useMutation({
+    mutationFn: ({ externalId, expectedVersion }: { externalId: string; expectedVersion: number }) =>
+      restoreServiceOrder(externalId, expectedVersion),
+    onSuccess: (order) => {
+      synchronizeOrder(order);
+      showSnackbar('Orden restaurada.', 'success');
+    },
+    onError: (error: Error) => showSnackbar(`No se pudo restaurar la orden: ${error.message}`, 'error'),
+  });
+
   return {
     createServiceOrder: createMutation.mutateAsync,
     updateServiceOrder: updateMutation.mutateAsync,
     completeServiceOrder: completeMutation.mutateAsync,
     deleteServiceOrder: deleteMutation.mutateAsync,
+    restoreServiceOrder: restoreMutation.mutateAsync,
     isSaving: createMutation.isPending || updateMutation.isPending,
-    isTransitioning: completeMutation.isPending || deleteMutation.isPending,
+    isTransitioning: completeMutation.isPending || deleteMutation.isPending || restoreMutation.isPending,
   };
 };
 

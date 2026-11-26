@@ -9,8 +9,10 @@ import {
 } from './serviceOrderUtils';
 
 describe('utilidades de órdenes de servicio', () => {
-  it('reconoce folio, celular o placas en una sola búsqueda', () => {
-    expect(detectSearchField('4861')).toBe('folio');
+  it('solo un celular completo va al teléfono; folios y series numéricas van a la búsqueda general', () => {
+    expect(detectSearchField('4861')).toBe('q');
+    expect(detectSearchField('22553')).toBe('q');
+    expect(detectSearchField('2255378')).toBe('q');
     expect(detectSearchField('PEND-SER-1A2B')).toBe('folio');
     expect(detectSearchField('812 504 9511')).toBe('phone');
     expect(detectSearchField('(81) 2504-9511')).toBe('phone');

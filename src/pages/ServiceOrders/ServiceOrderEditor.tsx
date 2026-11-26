@@ -92,8 +92,8 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
   const { control, handleSubmit, formState: { isDirty, isSubmitting } } = methods;
   // A capture started here saves itself (and opens in progress); a reopened order saves explicitly.
   const autosave = useServiceDraft(storageKey, externalId, methods, initialOrder, failureTypes, !initialOrder);
-  const { completeServiceOrder, deleteServiceOrder, isTransitioning } = useServiceOrderMutations();
-  const [transition, setTransition] = useState<'complete' | 'delete' | null>(null);
+  const { completeServiceOrder, deleteServiceOrder, restoreServiceOrder, isTransitioning } = useServiceOrderMutations();
+  const [transition, setTransition] = useState<'complete' | 'delete' | 'restore' | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
 
   const order = autosave.order;
@@ -119,13 +119,28 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
   leaveRef.current = leaveTo;
   // Stable callbacks keep the memoized sections from re-rendering with the editor.
   const openClient = useCallback((id: number) => leaveRef.current(`/clients/${id}`), []);
-  const requestTransition = useCallback((next: 'complete' | 'delete') => { setDeleteReason(''); setTransition(next); }, []);
+  const requestTransition = useCallback((next: 'complete' | 'delete' | 'restore') => {
+    // The serial is only required to hand the order over, so captures can open without it.
+    if (next === 'complete' && !methods.getValues('radiatorSerialNumber').trim()) {
+      methods.setError('radiatorSerialNumber', { type: 'required', message: 'Captura el número de serie (o «SIN SERIE») para completar la orden.' });
+      methods.setFocus('radiatorSerialNumber');
+      return;
+    }
+    setDeleteReason('');
+    setTransition(next);
+  }, [methods]);
 
   const saveChanges = handleSubmit(async () => { await autosave.save().catch(() => undefined); });
 
   const confirmTransition = async () => {
     if (!transition) return;
     if (!order) { autosave.discardLocal(); navigate(back); return; }
+    if (transition === 'restore') {
+      const restored = await restoreServiceOrder({ externalId: order.externalId, expectedVersion: order.version });
+      autosave.acceptTransition(restored);
+      setTransition(null);
+      return;
+    }
     if (transition === 'delete') {
       const deleted = await deleteServiceOrder({ externalId: order.externalId, expectedVersion: order.version, reason: deleteReason.trim() });
       autosave.acceptTransition(deleted);
@@ -227,7 +242,7 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
             )}
             {isClosed && (
               <Alert severity="warning" sx={{ mb: 2.5 }}>
-                Esta orden fue eliminada{order?.cancellationReason ? ` («${order.cancellationReason}»)` : ''}. Ya no aparece en las listas y se conserva como solo lectura.
+                Esta orden fue eliminada{order?.cancelledByName ? ` por ${order.cancelledByName}` : ''}{order?.cancellationReason ? ` («${order.cancellationReason}»)` : ''}. Ya no aparece en las listas y se conserva como solo lectura; puedes restaurarla desde «Estado».
               </Alert>
             )}
             {order?.status === 'COMPLETED' && (
@@ -262,11 +277,13 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
 
         {pdf.dialog}
         <Dialog open={transition !== null} onClose={() => !busy && setTransition(null)} maxWidth="xs" fullWidth>
-          <DialogTitle>{transition === 'complete' ? 'Completar y entregar' : order ? 'Eliminar orden' : 'Descartar captura'}</DialogTitle>
+          <DialogTitle>{transition === 'complete' ? 'Completar y entregar' : transition === 'restore' ? 'Restaurar orden' : order ? 'Eliminar orden' : 'Descartar captura'}</DialogTitle>
           <DialogContent>
             <Typography>
               {transition === 'complete'
                 ? 'Se guardarán los cambios pendientes y la orden quedará como entregada. Podrás seguir editándola si hace falta.'
+                : transition === 'restore' && order
+                  ? `La orden ${folioLabel(order)} vuelve a las listas como ${order.completedAt ? 'completada' : 'en progreso'}.`
                 : order
                   ? `La orden ${folioLabel(order)} dejará de aparecer en las listas y búsquedas. Su folio queda registrado como eliminado, con el motivo.`
                   : 'Se eliminará la captura de este equipo. Esta acción no se puede deshacer.'}
@@ -292,11 +309,11 @@ export const ServiceOrderEditor = ({ order: initialOrder, failureTypes, draftId,
             <Button
               variant="contained"
               disableElevation
-              color={transition === 'delete' ? 'error' : 'success'}
+              color={transition === 'delete' ? 'error' : transition === 'restore' ? 'primary' : 'success'}
               onClick={() => void confirmTransition().catch(() => undefined)}
               disabled={busy || (transition === 'delete' && Boolean(order) && !deleteReason.trim())}
             >
-              {busy ? 'Procesando…' : transition === 'delete' ? (order ? 'Eliminar' : 'Descartar') : 'Confirmar'}
+              {busy ? 'Procesando…' : transition === 'delete' ? (order ? 'Eliminar' : 'Descartar') : transition === 'restore' ? 'Restaurar' : 'Confirmar'}
             </Button>
           </DialogActions>
         </Dialog>

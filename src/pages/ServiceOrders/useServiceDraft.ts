@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { UseFormReturn } from 'react-hook-form';
-import { v4 as uuid } from 'uuid';
 import type { ReportedFailureType, ServiceOrder, ServiceOrderFormValues } from '../../types/serviceOrder.types';
 import { createServiceOrder, getServiceOrder, updateServiceOrder } from '../../services/ServiceOrderService';
 import { serviceOrderQueryKeys } from '../../hooks/useServiceOrders';
@@ -38,7 +37,6 @@ export function useServiceDraft(key: string, externalId: string, form: UseFormRe
   const queue = useRef<Promise<ServiceOrder> | null>(null);
   const acknowledged = useRef(recovered.current?.syncedValues ?? (initialOrder ? JSON.stringify(form.getValues()) : ''));
   const conflict = useRef(Boolean(recovered.current?.server && initialOrder && recovered.current.server.version !== initialOrder.version && recovered.current.syncedValues !== JSON.stringify(recovered.current.values)));
-  const noteId = useRef(recovered.current?.noteId ?? uuid());
   const hasCheckpoint = useRef(Boolean(recovered.current));
   const burstTimer = useRef<number | null>(null);
   const trailingPending = useRef(false);
@@ -46,7 +44,7 @@ export function useServiceDraft(key: string, externalId: string, form: UseFormRe
   const checkpoint = () => {
     if (conflict.current) return false;
     const values = structuredClone(form.getValues());
-    const record: ServiceDraft = { format: 1, externalId, values, noteId: noteId.current, server: server.current, syncedValues: acknowledged.current, updatedAt: new Date().toISOString() };
+    const record: ServiceDraft = { format: 1, externalId, values, server: server.current, syncedValues: acknowledged.current, updatedAt: new Date().toISOString() };
     try { writeDraft(key, record); hasCheckpoint.current = true; return true; }
     catch { if (active.current) setError('No se pudo respaldar en este navegador. No cierres la pantalla hasta guardar en servidor.'); return false; }
   };
@@ -119,8 +117,6 @@ export function useServiceDraft(key: string, externalId: string, form: UseFormRe
     const pending = (async () => {
       await serviceOrderSchema.validate(values, { abortEarly: false });
       const fields = buildWriteFields(values, types);
-      // Stable note identity across an uncertain network retry.
-      if (fields.internalNotes.length) fields.internalNotes[0].externalId = noteId.current;
       let saved: ServiceOrder;
       if (server.current) {
         saved = await updateServiceOrder(externalId, { ...fields, externalId, expectedVersion: server.current.version });
@@ -129,7 +125,7 @@ export function useServiceDraft(key: string, externalId: string, form: UseFormRe
         if (saved.idempotentReplay) {
           // The first POST may have succeeded before the connection was lost.
           // Preserve that record, then explicitly update its recovered draft only.
-          const comparable = (value: ReturnType<typeof buildWriteFields>) => JSON.stringify({ ...value, internalNotes: [], reportedFailures: value.reportedFailures.map((row) => ({ reportedFailureTypeId: row.reportedFailureTypeId, otherText: row.otherText, amount: row.amount, observation: row.observation })) });
+          const comparable = (value: ReturnType<typeof buildWriteFields>) => JSON.stringify({ ...value, reportedFailures: value.reportedFailures.map((row) => ({ reportedFailureTypeId: row.reportedFailureTypeId, otherText: row.otherText, amount: row.amount, observation: row.observation })) });
           if (comparable(fields) !== comparable(buildWriteFields(createFormValues(types, saved), types))) {
             server.current = saved;
             checkpointRef.current();
@@ -139,12 +135,6 @@ export function useServiceDraft(key: string, externalId: string, form: UseFormRe
       }
       server.current = saved;
       acknowledged.current = JSON.stringify(values);
-      if (values.internalNote) noteId.current = uuid();
-      if (values.internalNote && form.getValues('internalNote') === values.internalNote) {
-        values.internalNote = '';
-        acknowledged.current = JSON.stringify(values);
-        form.setValue('internalNote', '');
-      }
       queryClient.setQueryData(serviceOrderQueryKeys.detail(externalId), saved);
       void queryClient.invalidateQueries({ queryKey: serviceOrderQueryKeys.lists() });
       // Never reset the form on a network response: typing may have continued.

@@ -155,11 +155,28 @@ describe('editor de órdenes', { timeout: 20_000 }, () => {
     expect(confirm).toBeEnabled();
   });
 
-  it('completar pide confirmación', async () => {
+  it('completar exige el número de serie y luego pide confirmación', async () => {
     renderEditor();
+    fireEvent.click(screen.getByRole('button', { name: 'Completar y entregar' }));
+    expect(await screen.findByText(/Captura el número de serie/)).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Completar y entregar' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'SIN SERIE' }));
     fireEvent.click(screen.getByRole('button', { name: 'Completar y entregar' }));
     const dialog = await screen.findByRole('dialog', { name: 'Completar y entregar' });
     expect(within(dialog).getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
+  });
+
+  it('muestra la nota privada guardada para seguir editándola', () => {
+    renderEditor({ order: { ...order, status: 'COMPLETED', internalNote: 'Regresó por fuga en la manguera' } });
+    expect(screen.getByRole('textbox', { name: 'Nota privada del taller' })).toHaveValue('Regresó por fuga en la manguera');
+  });
+
+  it('una orden eliminada muestra quién la eliminó y se puede restaurar', async () => {
+    renderEditor({ order: { ...order, status: 'CANCELLED', cancelledByName: 'Eloísa Díaz', cancellationReason: 'Duplicada' } });
+    expect(screen.getByText(/eliminada por Eloísa Díaz/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Restaurar orden' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Restaurar orden' });
+    expect(within(dialog).getByText(/vuelve a las listas como en progreso/)).toBeInTheDocument();
   });
 
   it('una orden completada sigue editable y se guarda con el botón principal', () => {

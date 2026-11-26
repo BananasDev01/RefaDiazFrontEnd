@@ -11,11 +11,12 @@ import {
   IconButton,
   TextField,
 } from '@mui/material';
+import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { v4 as uuidv4 } from 'uuid';
 import { useClientMutations, useClients } from '../../hooks/useClients';
 import type { Client, ClientFormValues } from '../../types/client.types';
-import { clientSchema, PHONE_DIGITS, phoneDigits } from './clientSchemas';
+import { clientPrefillFromSearch, clientSchema, PHONE_DIGITS, phoneDigits } from './clientSchemas';
 import { PhoneField } from './PhoneField';
 
 interface ClientCreateDialogProps {
@@ -24,6 +25,8 @@ interface ClientCreateDialogProps {
   onCreated: (client: Client) => void;
   /** An already registered client found by phone; defaults to `onCreated`. */
   onUseExisting?: (client: Client) => void;
+  /** Text typed in the client search; prefills the phone or the name. */
+  initialQuery?: string;
 }
 
 const defaultValues: ClientFormValues = {
@@ -33,7 +36,7 @@ const defaultValues: ClientFormValues = {
   comments: '',
 };
 
-const ClientCreateDialog = ({ open, onClose, onCreated, onUseExisting }: ClientCreateDialogProps) => {
+const ClientCreateDialog = ({ open, onClose, onCreated, onUseExisting, initialQuery }: ClientCreateDialogProps) => {
   const { createClient, isCreatingClient } = useClientMutations();
   const {
     control,
@@ -44,6 +47,10 @@ const ClientCreateDialog = ({ open, onClose, onCreated, onUseExisting }: ClientC
     resolver: yupResolver(clientSchema),
     defaultValues,
   });
+  useEffect(() => {
+    if (open) reset({ ...defaultValues, ...clientPrefillFromSearch(initialQuery) });
+  }, [open, initialQuery, reset]);
+
   // Detect a registered phone before saving instead of silently reusing that client.
   const phone = phoneDigits(useWatch({ control, name: 'phoneNumber' }));
   const lookup = useClients({ phone, limit: 1, offset: 0 }, open && phone.length === PHONE_DIGITS);

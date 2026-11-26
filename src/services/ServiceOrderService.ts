@@ -44,6 +44,14 @@ export const completeServiceOrder = async (
   return axiosInstance.post(`${SERVICES_ENDPOINT}/${externalId}/complete`, { expectedVersion });
 };
 
+/** Brings a deleted order back to where it was (completed or in progress). */
+export const restoreServiceOrder = async (
+  externalId: string,
+  expectedVersion: number
+): Promise<ServiceOrder> => {
+  return axiosInstance.post(`${SERVICES_ENDPOINT}/${externalId}/restore`, { expectedVersion });
+};
+
 /** Deletes the order from lists and searches; the server keeps it, with the reason, for the folio trail. */
 export const deleteServiceOrder = async (
   externalId: string,

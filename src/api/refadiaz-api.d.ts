@@ -276,6 +276,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/services/{serviceExternalId}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restaurar un servicio eliminado
+         * @description Regresa una orden `CANCELLED` a `COMPLETED` si ya se había completado, o a `IN_PROGRESS`.
+         */
+        post: operations["restoreService"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/services/{serviceExternalId}/cancel": {
         parameters: {
             query?: never;
@@ -627,6 +647,8 @@ export interface components {
             clientId?: number;
             /** @description Solo para PART */
             partDescription?: string;
+            /** @description Nota privada única del taller; null la borra y omitirla la conserva */
+            internalNote?: string | null;
             /** Format: date */
             serviceDate?: string;
             workManagerUserId?: string;
@@ -728,6 +750,8 @@ export interface components {
             category: components["schemas"]["ServiceCategory"];
             partDescription?: components["schemas"]["NullableString"];
             cancellationReason?: components["schemas"]["NullableString"];
+            cancelledByName?: components["schemas"]["NullableString"];
+            internalNote?: components["schemas"]["NullableString"];
             serviceDate?: components["schemas"]["NullableDate"];
             clientVehicleId?: number | null;
             clientId: number;
@@ -1670,6 +1694,34 @@ export interface operations {
         requestBody: components["requestBodies"]["VersionTransition"];
         responses: {
             /** @description Servicio iniciado o reintento idempotente */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+        };
+    };
+    restoreService: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serviceExternalId: components["parameters"]["ServiceExternalIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["VersionTransition"];
+        responses: {
+            /** @description Servicio restaurado o reintento idempotente */
             200: {
                 headers: {
                     [name: string]: unknown;
