@@ -3,7 +3,9 @@ import { Outlet } from 'react-router-dom';
 import { Box, CssBaseline, styled } from '@mui/material';
 import { Header } from '../../components/layout/Header';
 import { Sidebar } from '../../components/layout/Sidebar';
+import { WhatsNewDialog } from '../../components/releases/WhatsNewDialog';
 import { useMobile } from '../../contexts/MobileProvider';
+import { useWhatsNew } from '../../hooks/useWhatsNew';
 
 const DrawerHeader = styled('div')(({ theme }) => ({
   display: 'flex',
@@ -16,6 +18,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 export const Dashboard: React.FC = () => {
   const [open, setOpen] = React.useState(false);
   const { isMobile } = useMobile();
+  const whatsNew = useWhatsNew();
 
   const handleDrawerToggle = () => {
     setOpen((currentOpen) => !currentOpen);
@@ -34,6 +37,7 @@ export const Dashboard: React.FC = () => {
         <DrawerHeader />
         <Outlet />
       </Box>
+      <WhatsNewDialog open={whatsNew.open} release={whatsNew.release} onClose={whatsNew.close} />
     </Box>
   );
 };

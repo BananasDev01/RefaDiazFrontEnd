@@ -24,6 +24,7 @@ import DocumentUploadPage from './pages/ServiceOrders/DocumentUploadPage'
 import { ServiceOrdersPage } from './pages/ServiceOrders/ServiceOrdersPage'
 import { NewServiceOrderPage, ServiceOrderEditorPage } from './pages/ServiceOrders/ServiceOrderPages'
 import { ClientDetailPage } from './pages/Clients/ClientDetailPage'
+import { ReleaseHistoryPage } from './pages/Releases/ReleaseHistoryPage'
 
 // Crear instancia de QueryClient
 const queryClient = new QueryClient({
@@ -78,6 +79,7 @@ function App() {
                     <Route path="brands" element={<Brands />} />
                   </Route>
                   <Route path="users" element={<Navigate to="/admin/users" replace />} />
+                  <Route path="releases" element={<ReleaseHistoryPage />} />
                   <Route path="vehicle-notes">
                     <Route index element={<VehicleNotesCatalog />} />
                     <Route path="new" element={<VehicleNoteFormPage />} />
